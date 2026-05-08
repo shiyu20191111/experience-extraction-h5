@@ -7,6 +7,8 @@
     <!-- PDF生成库 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    <!-- HTML转图片库 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -216,7 +218,7 @@
                 </div>
                 <div class="input-group">
                     <label>工号 <span style="color:#ff4d4f">*</span></label>
-                    <input type="text" id="employeeId" placeholder="请输入你的员工工号">
+                    <input type="text" id="employeeId" placeholder="请输入5位数字工号" maxlength="5">
                 </div>
                 <div class="input-group">
                     <label>所属部门 <span style="color:#ff4d4f">*</span></label>
@@ -490,6 +492,47 @@
         </div>
     </div>
 
+    <!-- PDF模板（隐藏） -->
+    <div id="pdfTemplate" style="position:absolute;left:-9999px;top:-9999px;width:800px;padding:40px;font-family:'Microsoft YaHei','微软雅黑',sans-serif;font-size:14px;line-height:1.8;background:white;color:#333;">
+        <div style="text-align:center;font-size:24px;font-weight:bold;margin-bottom:30px;color:#333;">经验萃取选题验证报告</div>
+        <div style="font-size:14px;margin-bottom:20px;">
+            <div style="margin-bottom:8px;"><strong>一、基本信息</strong></div>
+            <div style="padding-left:10px;">
+                <div>姓名：<span id="pdf_name"></span></div>
+                <div>工号：<span id="pdf_employeeId"></span></div>
+                <div>部门：<span id="pdf_department"></span></div>
+                <div>选题来源：<span id="pdf_source"></span></div>
+                <div>提交时间：<span id="pdf_submitTime"></span></div>
+            </div>
+        </div>
+        <div style="font-size:14px;margin-bottom:20px;">
+            <div style="margin-bottom:8px;"><strong>二、选题内容</strong></div>
+            <div id="pdf_topic" style="padding-left:10px;word-wrap:break-word;"></div>
+        </div>
+        <div style="font-size:14px;margin-bottom:20px;">
+            <div style="margin-bottom:8px;"><strong>三、三维度自评</strong></div>
+            <div style="padding-left:10px;">
+                <div>高价值：<span id="pdf_dim1"></span>分</div>
+                <div>紧迫度：<span id="pdf_dim2"></span>分</div>
+                <div>常发生：<span id="pdf_dim3"></span>分</div>
+            </div>
+        </div>
+        <div style="font-size:14px;margin-bottom:20px;">
+            <div style="margin-bottom:8px;"><strong>四、萃取价值与深入思考</strong></div>
+            <div style="padding-left:10px;">
+                <div id="pdf_value_block"><strong>萃取价值：</strong><span id="pdf_value"></span></div>
+                <div id="pdf_lesson_block"><strong>弯路教训：</strong><span id="pdf_lesson"></span></div>
+                <div id="pdf_effect_block"><strong>期望效果：</strong><span id="pdf_effect"></span></div>
+                <div id="pdf_audience_block"><strong>目标学员：</strong><span id="pdf_audience"></span></div>
+            </div>
+        </div>
+        <div style="font-size:14px;margin-bottom:20px;">
+            <div style="margin-bottom:8px;"><strong>五、选题修改</strong></div>
+            <div id="pdf_topic_block" style="padding-left:10px;"><strong>是否修改选题：</strong><span id="pdf_needRevise"></span></div>
+        </div>
+        <div style="text-align:right;font-size:12px;color:#999;margin-top:40px;">集团人力资源管理部</div>
+    </div>
+
     <script>
         // ========== 全局状态 ==========
         var formData = {
@@ -526,6 +569,7 @@
 
             if (!name) { alert('请输入姓名'); return; }
             if (!employeeId) { alert('请输入工号'); return; }
+            if (!/^\d{5}$/.test(employeeId)) { alert('工号必须为5位数字'); return; }
             if (!department) { alert('请输入部门'); return; }
             if (!topic) { alert('请输入选题'); return; }
 
@@ -1101,103 +1145,91 @@
         
         function doGeneratePDF() {
             try {
-                var doc = new window.jspdf.jsPDF();
-                var pageWidth = 210;
-                var margin = 20;
-                var currentY = 30;
-
-                // 标题
-                doc.setFontSize(18);
-                doc.setTextColor(40, 40, 40);
-                doc.text('经验萃取选题验证报告', pageWidth / 2, currentY, { align: 'center' });
-                currentY += 12;
-
-                // 基本信息
-                doc.setFontSize(13);
-                doc.setTextColor(60, 60, 60);
-                doc.text('一、基本信息', margin, currentY);
-                currentY += 8;
-                doc.setFontSize(10);
-                doc.setTextColor(80, 80, 80);
-                doc.text('姓名：' + formData.name, margin + 5, currentY); currentY += 6;
-                doc.text('工号：' + formData.employeeId, margin + 5, currentY); currentY += 6;
-                doc.text('部门：' + formData.department, margin + 5, currentY); currentY += 6;
-                doc.text('选题来源：' + formData.source, margin + 5, currentY); currentY += 6;
-                doc.text('提交时间：' + formData.submitTime, margin + 5, currentY); currentY += 12;
-
-                // 选题内容
-                doc.setFontSize(13);
-                doc.setTextColor(60, 60, 60);
-                doc.text('二、选题内容', margin, currentY);
-                currentY += 8;
-                doc.setFontSize(10);
-                doc.setTextColor(80, 80, 80);
-                var topicLines = doc.splitTextToSize(formData.topic, pageWidth - margin * 2 - 10);
-                doc.text(topicLines, margin + 5, currentY);
-                currentY += topicLines.length * 5 + 10;
-
-                // 三维度自评
-                doc.setFontSize(13);
-                doc.setTextColor(60, 60, 60);
-                doc.text('三、三维度自评', margin, currentY);
-                currentY += 8;
-                doc.setFontSize(10);
-                doc.setTextColor(80, 80, 80);
-                doc.text('高价值：' + formData.dim1Score + '分', margin + 5, currentY); currentY += 6;
-                doc.text('紧迫度：' + formData.dim2Score + '分', margin + 5, currentY); currentY += 6;
-                doc.text('常发生：' + formData.dim3Score + '分', margin + 5, currentY); currentY += 12;
-
-                // 萃取价值与深入思考
-                doc.setFontSize(13);
-                doc.setTextColor(60, 60, 60);
-                doc.text('四、萃取价值与深入思考', margin, currentY);
-                currentY += 8;
-                doc.setFontSize(10);
-                doc.setTextColor(80, 80, 80);
-                if (formData.extractionValue) {
-                    doc.text('萃取价值：', margin + 5, currentY); currentY += 5;
-                    var valueLines = doc.splitTextToSize(formData.extractionValue, pageWidth - margin * 2 - 15);
-                    doc.text(valueLines, margin + 10, currentY); currentY += valueLines.length * 5;
-                }
-                if (formData.lessonLearned) {
-                    doc.text('弯路教训：', margin + 5, currentY); currentY += 5;
-                    var lessonLines = doc.splitTextToSize(formData.lessonLearned, pageWidth - margin * 2 - 15);
-                    doc.text(lessonLines, margin + 10, currentY); currentY += lessonLines.length * 5;
-                }
-                if (formData.expectedEffect) {
-                    doc.text('期望效果：', margin + 5, currentY); currentY += 5;
-                    var effectLines = doc.splitTextToSize(formData.expectedEffect, pageWidth - margin * 2 - 15);
-                    doc.text(effectLines, margin + 10, currentY); currentY += effectLines.length * 5;
-                }
-                if (formData.targetAudience) {
-                    doc.text('目标学员：', margin + 5, currentY); currentY += 5;
-                    var audienceLines = doc.splitTextToSize(formData.targetAudience, pageWidth - margin * 2 - 15);
-                    doc.text(audienceLines, margin + 10, currentY); currentY += audienceLines.length * 5 + 10;
+                // 检测html2canvas是否加载
+                if (typeof html2canvas === 'undefined') {
+                    alert('PDF生成库加载失败，请检查网络后重试');
+                    return;
                 }
 
-                // 选题修改
-                doc.setFontSize(13);
-                doc.setTextColor(60, 60, 60);
-                doc.text('五、选题修改', margin, currentY);
-                currentY += 8;
-                doc.setFontSize(10);
-                doc.setTextColor(80, 80, 80);
-                doc.text('是否修改选题：' + (formData.needRevise === 'yes' ? '是' : '否'), margin + 5, currentY);
-                if (formData.needRevise === 'yes' && formData.revisedTopic) {
-                    currentY += 6;
-                    doc.text('修改后选题：', margin + 5, currentY); currentY += 5;
-                    var revisedLines = doc.splitTextToSize(formData.revisedTopic, pageWidth - margin * 2 - 15);
-                    doc.text(revisedLines, margin + 10, currentY);
-                }
-                currentY += 20;
+                // 填充PDF模板数据
+                document.getElementById('pdf_name').textContent = formData.name;
+                document.getElementById('pdf_employeeId').textContent = formData.employeeId;
+                document.getElementById('pdf_department').textContent = formData.department;
+                document.getElementById('pdf_source').textContent = formData.source || '大赛选题';
+                document.getElementById('pdf_submitTime').textContent = formData.submitTime;
+                document.getElementById('pdf_topic').textContent = formData.topic;
+                document.getElementById('pdf_dim1').textContent = formData.dim1Score;
+                document.getElementById('pdf_dim2').textContent = formData.dim2Score;
+                document.getElementById('pdf_dim3').textContent = formData.dim3Score;
+                document.getElementById('pdf_value').textContent = formData.extractionValue || '无';
+                document.getElementById('pdf_lesson').textContent = formData.lessonLearned || '无';
+                document.getElementById('pdf_effect').textContent = formData.expectedEffect || '无';
+                document.getElementById('pdf_audience').textContent = formData.targetAudience || '无';
+                document.getElementById('pdf_needRevise').textContent = formData.needRevise === 'yes' ? '是' : '否';
 
-                // 落款
-                doc.setFontSize(10);
-                doc.setTextColor(100, 100, 100);
-                doc.text('集团人力资源管理部', pageWidth - margin, currentY, { align: 'right' });
+                // 处理空值显示
+                if (!formData.extractionValue) document.getElementById('pdf_value_block').style.display = 'none';
+                if (!formData.lessonLearned) document.getElementById('pdf_lesson_block').style.display = 'none';
+                if (!formData.expectedEffect) document.getElementById('pdf_effect_block').style.display = 'none';
+                if (!formData.targetAudience) document.getElementById('pdf_audience_block').style.display = 'none';
 
-                // 保存
-                doc.save('选题验证报告_' + formData.name + '_' + formData.employeeId + '.pdf');
+                // 获取模板元素
+                var template = document.getElementById('pdfTemplate');
+
+                // 使用html2canvas将HTML转换为图片
+                html2canvas(template, {
+                    scale: 2,
+                    useCORS: true,
+                    backgroundColor: '#ffffff',
+                    logging: false
+                }).then(function(canvas) {
+                    // 创建PDF
+                    var doc = new window.jspdf.jsPDF({
+                        orientation: 'portrait',
+                        unit: 'mm',
+                        format: 'a4'
+                    });
+
+                    // 计算图片尺寸以适应A4纸张
+                    var imgWidth = 210; // A4宽度 mm
+                    var imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+                    // 如果内容超过一页，分页处理
+                    var pageHeight = 297; // A4高度 mm
+                    var margin = 10;
+
+                    if (imgHeight <= pageHeight - margin * 2) {
+                        // 内容可以放在一页
+                        doc.addImage(canvas.toDataURL('image/png'), 'PNG', 0, margin, imgWidth, imgHeight);
+                    } else {
+                        // 内容超过一页，分页
+                        var heightLeft = imgHeight;
+                        var position = margin;
+                        doc.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, imgWidth, imgHeight);
+                        heightLeft -= pageHeight;
+
+                        while (heightLeft > 0) {
+                            position = heightLeft - imgHeight + margin;
+                            doc.addPage();
+                            doc.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, imgWidth, imgHeight);
+                            heightLeft -= pageHeight;
+                        }
+                    }
+
+                    // 保存，文件名包含姓名和工号
+                    var filename = '选题验证报告_' + formData.name + '_' + formData.employeeId + '.pdf';
+                    doc.save(filename);
+
+                    // 恢复模板显示
+                    document.getElementById('pdf_value_block').style.display = '';
+                    document.getElementById('pdf_lesson_block').style.display = '';
+                    document.getElementById('pdf_effect_block').style.display = '';
+                    document.getElementById('pdf_audience_block').style.display = '';
+
+                }).catch(function(err) {
+                    console.error('PDF生成失败:', err);
+                    alert('PDF生成失败，请稍后重试');
+                });
 
             } catch (e) {
                 console.error('PDF生成失败:', e);
