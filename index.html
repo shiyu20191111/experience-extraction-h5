@@ -105,6 +105,7 @@
         .alert {
             padding: 16px; border-radius: 12px; margin-bottom: 16px; font-size: 14px;
         }
+        .alert-error { background: #fff2f0; border: 1px solid #ffccc7; color: #cf1322; }
         .alert-warning { background: #fffbe6; border: 1px solid #ffe58f; color: #d48806; }
         .alert-danger { background: #fff2f0; border: 1px solid #ffccc7; color: #cf1322; }
         .alert-success { background: #f6ffed; border: 1px solid #b7eb8f; color: #389e0d; }
@@ -203,6 +204,16 @@
                     <strong>超能讲师超"AI"讲！让每一份沉淀的经验被看见，让每一次勇敢的分享被认可。</strong>
                 </p>
 
+                <!-- 选题小贴士 -->
+                <div class="tips" style="margin-bottom:16px;">
+                    <div class="tips-title">💡 选题小贴士</div>
+                    <ul class="tips-list">
+                        <li>选题应来自你的实际工作经验，是你在工作中摸索出来的有效方法</li>
+                        <li>优先选择高频发生的工作场景</li>
+                        <li>聚焦真实的工作痛点难点，能解决实际问题</li>
+                    </ul>
+                </div>
+
                 <div class="input-group">
                     <label>姓名 <span style="color:#ff4d4f">*</span></label>
                     <input type="text" id="name" placeholder="请输入你的姓名">
@@ -236,16 +247,7 @@
                         </div>
                     </div>
                 </div>
-                <!-- 选题小贴士 -->
-                <div class="tips" style="margin-top:16px;">
-                    <div class="tips-title">💡 选题小贴士</div>
-                    <ul class="tips-list">
-                        <li>选题应来自你的实际工作经验，是你在工作中摸索出来的有效方法</li>
-                        <li>优先选择高频发生的工作场景</li>
-                        <li>聚焦真实的工作痛点难点，能解决实际问题</li>
-                    </ul>
-                </div>
-
+                <!-- 选题小贴士已移到姓名上方 -->
                 <button class="btn" onclick="goToStep2()">
                     <span>下一步</span> →
                 </button>
@@ -625,36 +627,80 @@
 
         // ========== 步骤2 → 步骤3 ==========
         function goToStep3() {
+            // 清空之前的错误提示
+            var errorDiv = document.getElementById('validationError');
+            if (errorDiv) errorDiv.style.display = 'none';
+            
             // 收集步骤2的数据
-            formData.extractionValue = document.getElementById('extractionValue').value.trim();
-            formData.lessonLearned = document.getElementById('lessonLearned').value.trim();
-            formData.expectedEffect = document.getElementById('expectedEffect').value.trim();
-            formData.targetAudience = document.getElementById('targetAudience').value.trim();
+            var source = document.getElementById('source').value;
+            var extractionValue = document.getElementById('extractionValue').value.trim();
+            var lessonLearned = document.getElementById('lessonLearned').value.trim();
+            var expectedEffect = document.getElementById('expectedEffect').value.trim();
+            var targetAudience = document.getElementById('targetAudience').value.trim();
 
-            // 获取分数
-            var dim1 = parseInt(document.getElementById('dim1Score').value) || 0;
-            var dim2 = parseInt(document.getElementById('dim2Score').value) || 0;
-            var dim3 = parseInt(document.getElementById('dim3Score').value) || 0;
+            // 获取分数 - 严格验证
+            var dim1Str = document.getElementById('dim1Score').value.trim();
+            var dim2Str = document.getElementById('dim2Score').value.trim();
+            var dim3Str = document.getElementById('dim3Score').value.trim();
+            
+            // 检查分数是否为空或无效
+            var dim1 = parseInt(dim1Str);
+            var dim2 = parseInt(dim2Str);
+            var dim3 = parseInt(dim3Str);
+            
+            // 验证是否有成功案例和选题是否清晰
+            var hasCaseRadios = document.getElementsByName('hasCase');
+            var hasCase = '';
+            for (var i = 0; i < hasCaseRadios.length; i++) {
+                if (hasCaseRadios[i].checked) {
+                    hasCase = hasCaseRadios[i].value;
+                    break;
+                }
+            }
+            
+            var isClearRadios = document.getElementsByName('isClear');
+            var isClear = '';
+            for (var i = 0; i < isClearRadios.length; i++) {
+                if (isClearRadios[i].checked) {
+                    isClear = isClearRadios[i].value;
+                    break;
+                }
+            }
 
-            // 验证必填项
-            if (!formData.source) { alert('请选择选题来源'); return; }
-            if (!dim1 && dim1 !== 0) { alert('请给高价值维度评分'); return; }
-            if (!dim2 && dim2 !== 0) { alert('请给紧迫度维度评分'); return; }
-            if (!dim3 && dim3 !== 0) { alert('请给常发生维度评分'); return; }
-            if (!formData.hasCase) { alert('请确认是否有成功案例'); return; }
-            if (!formData.isClear) { alert('请选择选题是否一目了然'); return; }
+            // 收集所有错误
+            var errors = [];
+            
+            if (!source) errors.push('请选择选题来源');
+            if (dim1Str === '' || isNaN(dim1)) errors.push('请给"高价值"维度评分（输入0-100的数字）');
+            if (dim2Str === '' || isNaN(dim2)) errors.push('请给"紧迫度"维度评分（输入0-100的数字）');
+            if (dim3Str === '' || isNaN(dim3)) errors.push('请给"常发生"维度评分（输入0-100的数字）');
+            if (!hasCase) errors.push('请确认是否有成功案例');
+            if (!isClear) errors.push('请选择选题是否一目了然');
+            
+            // 如果有错误，显示错误并返回
+            if (errors.length > 0) {
+                showValidationErrors(errors);
+                return;
+            }
 
             // 验证总分是否达到150
             var totalScore = dim1 + dim2 + dim3;
             if (totalScore < 150) {
-                alert('⚠️ 三维度总分不足150分（当前：' + totalScore + '分），说明这个经验还需要进一步打磨。请重新思考选题方向，或返回修改选题后重新评估。');
+                showValidationErrors(['三维度总分不足150分（当前：' + totalScore + '分），说明这个经验还需要进一步打磨。请重新思考选题方向，或返回修改选题后重新评估。']);
                 return;
             }
 
-            // 保存分数到formData
+            // 保存数据到formData
+            formData.source = source;
+            formData.extractionValue = extractionValue;
+            formData.lessonLearned = lessonLearned;
+            formData.expectedEffect = expectedEffect;
+            formData.targetAudience = targetAudience;
             formData.dim1Score = dim1;
             formData.dim2Score = dim2;
             formData.dim3Score = dim3;
+            formData.hasCase = hasCase;
+            formData.isClear = isClear;
 
             // 生成修改建议
             generateSuggestions();
@@ -664,6 +710,26 @@
             document.getElementById('stepSection3').classList.add('active');
             updateStepIndicator(3);
             updateProgress(75);
+        }
+        
+        // 显示验证错误
+        function showValidationErrors(errors) {
+            var errorDiv = document.getElementById('validationError');
+            if (!errorDiv) {
+                // 如果错误div不存在，在step2Btns之前插入
+                errorDiv = document.createElement('div');
+                errorDiv.id = 'validationError';
+                errorDiv.className = 'alert alert-error';
+                errorDiv.style.marginBottom = '16px';
+                var btns = document.getElementById('step2Btns');
+                btns.parentNode.insertBefore(errorDiv, btns);
+            }
+            errorDiv.innerHTML = '<strong>请检查以下内容：</strong><ul style="margin:8px 0 0 0;padding-left:20px;">' + 
+                errors.map(function(e) { return '<li>' + e + '</li>'; }).join('') + 
+                '</ul>';
+            errorDiv.style.display = 'block';
+            // 滚动到错误位置
+            errorDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
 
         // ========== 选题来源变化 ==========
