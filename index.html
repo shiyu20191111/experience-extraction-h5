@@ -626,113 +626,50 @@
         }
 
         // ========== 步骤2 → 步骤3 (新版本，兼容按钮) ==========
-        function submitStep2() {
-            try {
-                // 先验证按钮是否存在和可见
-                var btn = document.getElementById('submitBtn');
-                if (!btn) {
-                    alert('按钮加载中，请稍后重试');
-                    return;
-                }
-                
-                // 收集数据
-                var source = document.getElementById('source').value;
-                var extractionValue = document.getElementById('extractionValue').value.trim();
-                var lessonLearned = document.getElementById('lessonLearned').value.trim();
-                var expectedEffect = document.getElementById('expectedEffect').value.trim();
-                var targetAudience = document.getElementById('targetAudience').value.trim();
-
-                // 获取分数
-                var dim1Str = document.getElementById('dim1Score').value.trim();
-                var dim2Str = document.getElementById('dim2Score').value.trim();
-                var dim3Str = document.getElementById('dim3Score').value.trim();
-                var dim1 = parseInt(dim1Str);
-                var dim2 = parseInt(dim2Str);
-                var dim3 = parseInt(dim3Str);
-
-                // 检查是否有成功案例
-                var hasCase = '';
-                var caseRadios = document.getElementsByName('hasCase');
-                for (var i = 0; i < caseRadios.length; i++) {
-                    if (caseRadios[i].checked) { hasCase = caseRadios[i].value; break; }
-                }
-
-                // 检查选题是否清晰
-                var isClear = '';
-                var clearRadios = document.getElementsByName('isClear');
-                for (var i = 0; i < clearRadios.length; i++) {
-                    if (clearRadios[i].checked) { isClear = clearRadios[i].value; break; }
-                }
-
-                // 逐项检查并提示
-                var missing = [];
-                if (!source) missing.push('选题来源');
-                if (dim1Str === '' || isNaN(dim1)) missing.push('高价值维度评分');
-                if (dim2Str === '' || isNaN(dim2)) missing.push('紧迫度维度评分');
-                if (dim3Str === '' || isNaN(dim3)) missing.push('常发生维度评分');
-                if (!hasCase) missing.push('是否有成功案例');
-                if (!isClear) missing.push('选题是否一目了然');
-
-                if (missing.length > 0) {
-                    alert('请完成以下必填项：\n• ' + missing.join('\n• '));
-                    return;
-                }
-
-                // 验证总分
-                var total = dim1 + dim2 + dim3;
-                if (total < 150) {
-                    alert('⚠️ 三维度总分需达到150分（当前：' + total + '分）\n\n您的经验还需要进一步打磨，请重新思考选题方向。');
-                    return;
-                }
-
-                // 保存数据
-                formData.source = source;
-                formData.extractionValue = extractionValue;
-                formData.lessonLearned = lessonLearned;
-                formData.expectedEffect = expectedEffect;
-                formData.targetAudience = targetAudience;
-                formData.dim1Score = dim1;
-                formData.dim2Score = dim2;
-                formData.dim3Score = dim3;
-                formData.hasCase = hasCase;
-                formData.isClear = isClear;
-
-                // 生成建议并切换步骤
-                generateSuggestions();
-                document.getElementById('stepSection2').classList.remove('active');
-                document.getElementById('stepSection3').classList.add('active');
-                updateStepIndicator(3);
-                updateProgress(75);
-                
-            } catch (e) {
-                alert('出错了，请刷新页面重试：' + e.message);
-                console.error('submitStep2 error:', e);
-            }
-        }
-
         // ========== 步骤2 → 步骤3 ==========
-        function goToStep3() {
-            submitStep2();
+        function submitStep2() {
+            // 获取必填值
+            var source = document.getElementById('source').value;
+            var dim1 = document.getElementById('dim1Score').value;
+            var dim2 = document.getElementById('dim2Score').value;
+            var dim3 = document.getElementById('dim3Score').value;
+            
+            // 检查必填项
+            if (!source) { alert('请选择选题来源'); return; }
+            if (!dim1) { alert('请填写高价值维度评分'); return; }
+            if (!dim2) { alert('请填写紧迫度维度评分'); return; }
+            if (!dim3) { alert('请填写常发生维度评分'); return; }
+            
+            // 检查单选按钮
+            var hasCase = document.querySelector('input[name="hasCase"]:checked');
+            var isClear = document.querySelector('input[name="isClear"]:checked');
+            if (!hasCase) { alert('请选择是否有成功案例'); return; }
+            if (!isClear) { alert('请选择选题是否一目了然'); return; }
+            
+            // 保存数据
+            formData.source = source;
+            formData.extractionValue = document.getElementById('extractionValue').value.trim();
+            formData.lessonLearned = document.getElementById('lessonLearned').value.trim();
+            formData.expectedEffect = document.getElementById('expectedEffect').value.trim();
+            formData.targetAudience = document.getElementById('targetAudience').value.trim();
+            formData.dim1Score = parseInt(dim1);
+            formData.dim2Score = parseInt(dim2);
+            formData.dim3Score = parseInt(dim3);
+            formData.hasCase = hasCase.value;
+            formData.isClear = isClear.value;
+            
+            // 生成建议
+            generateSuggestions();
+            
+            // 切换到步骤3
+            document.getElementById('stepSection2').classList.remove('active');
+            document.getElementById('stepSection3').classList.add('active');
+            updateStepIndicator(3);
+            updateProgress(75);
         }
         
-        // 显示验证错误
-        function showValidationErrors(errors) {
-            var errorDiv = document.getElementById('validationError');
-            if (!errorDiv) {
-                // 如果错误div不存在，在step2Btns之前插入
-                errorDiv = document.createElement('div');
-                errorDiv.id = 'validationError';
-                errorDiv.className = 'alert alert-error';
-                errorDiv.style.marginBottom = '16px';
-                var btns = document.getElementById('step2Btns');
-                btns.parentNode.insertBefore(errorDiv, btns);
-            }
-            errorDiv.innerHTML = '<strong>请检查以下内容：</strong><ul style="margin:8px 0 0 0;padding-left:20px;">' + 
-                errors.map(function(e) { return '<li>' + e + '</li>'; }).join('') + 
-                '</ul>';
-            errorDiv.style.display = 'block';
-            // 滚动到错误位置
-            errorDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        function goToStep3() {
+            submitStep2();
         }
 
         // ========== 选题来源变化 ==========
