@@ -937,16 +937,27 @@
         // ========== 提取结果 ==========
         function extractResult(effect, value) {
             var text = effect || value || '';
-            var results = text.match(/[提升|优化|改善|解决|提高|增加|达成|减少|降低]+[^，,。.。]+/g);
+            
+            // 如果用户直接输入了完整的结果描述（如"7%"、"提升50%"等），直接返回
+            // 匹配常见的完整结果表达式
+            var completeResults = text.match(/[\u4e00-\u9fa5]*[提升优化改善解决提高增加达成减少降低]+[^，,。.。\n]{1,20}/g);
+            if (completeResults && completeResults.length > 0) {
+                return completeResults[0].substring(0, 20);
+            }
+            
+            // 尝试提取结果关键词+后面的内容
+            var results = text.match(/(?:提升|优化|改善|解决|提高|增加|达成|减少|降低)[^，,。.。\n]{0,15}/g);
             if (results && results.length > 0) {
-                return results[0].substring(0, 15);
+                return results[0].substring(0, 20);
             }
-            // 提取数字指标
-            var nums = text.match(/\d+[%％]?/g);
-            if (nums && nums.length > 0) {
-                return '提升' + nums[0];
+            
+            // 如果用户只输入了数字或简单内容，直接返回原内容
+            if (text.length > 0 && text.length <= 10) {
+                return text;
             }
-            return '提升工作效率';
+            
+            // 如果文本太短或为空，返回空（让UI决定显示什么）
+            return '';
         }
 
         // ========== 提交验证 ==========
@@ -1061,7 +1072,32 @@
         // ========== 生成PDF文档 ==========
         function generatePDF() {
             try {
-                var doc = new window.jspDF();
+                // 检测jsPDF是否加载
+                if (typeof window.jspdf === 'undefined' || typeof window.jspdf.jsPDF !== 'function') {
+                    // 尝试等待jsPDF加载
+                    var checkCount = 0;
+                    var checkPDF = setInterval(function() {
+                        checkCount++;
+                        if (typeof window.jspdf !== 'undefined' && typeof window.jspdf.jsPDF === 'function') {
+                            clearInterval(checkPDF);
+                            doGeneratePDF();
+                        } else if (checkCount > 20) {
+                            clearInterval(checkPDF);
+                            alert('PDF生成库加载失败，请检查网络后重试');
+                        }
+                    }, 200);
+                } else {
+                    doGeneratePDF();
+                }
+            } catch (e) {
+                console.error('PDF生成失败:', e);
+                alert('PDF生成失败，请稍后重试');
+            }
+        }
+        
+        function doGeneratePDF() {
+            try {
+                var doc = new window.jspdf.jsPDF();
                 var pageWidth = 210;
                 var margin = 20;
                 var currentY = 30;
