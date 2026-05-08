@@ -661,14 +661,22 @@
             formData.hasCase = hasCase.value;
             formData.isClear = isClear.value;
             
-            // 生成建议
-            generateSuggestions();
+            // 生成建议（用try-catch确保不阻塞）
+            try {
+                generateSuggestions();
+            } catch(e) {
+                console.error('generateSuggestions error:', e);
+                // 即使出错也显示默认建议
+                document.getElementById('suggestionList').innerHTML = '<div class="suggestion-item"><span class="suggestion-text">✅ 您的选题已提交成功！</span></div>';
+            }
             
             // 切换到步骤3
-            document.getElementById('stepSection2').classList.remove('active');
-            document.getElementById('stepSection3').classList.add('active');
+            document.getElementById('stepSection2').style.display = 'none';
+            document.getElementById('stepSection3').style.display = 'block';
             updateStepIndicator(3);
             updateProgress(75);
+            
+            alert('验证通过！正在进入下一步...');
         }
         
         function goToStep3() {
