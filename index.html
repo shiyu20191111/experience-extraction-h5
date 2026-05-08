@@ -1,0 +1,1194 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>超AI讲 - 你的AI选题助手</title>
+    <!-- PDF生成库 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 600px; margin: 0 auto; }
+        .header { text-align: center; color: white; margin-bottom: 30px; }
+        .header h1 { font-size: 26px; margin-bottom: 8px; text-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        .header p { font-size: 13px; opacity: 0.9; }
+        .card {
+            background: white; border-radius: 16px; padding: 24px;
+            margin-bottom: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+        .card-title {
+            font-size: 18px; font-weight: 600; color: #333;
+            margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
+        }
+        .card-title .icon {
+            width: 28px; height: 28px; background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 8px; display: flex; align-items: center; justify-content: center;
+            color: white; font-size: 14px;
+        }
+        .input-group { margin-bottom: 16px; }
+        .input-group label { display: block; font-size: 14px; color: #666; margin-bottom: 8px; }
+        .input-group input, .input-group textarea, .input-group select {
+            width: 100%; padding: 14px; border: 2px solid #e8e8e8;
+            border-radius: 12px; font-size: 16px; transition: all 0.3s; font-family: inherit;
+            background: white;
+        }
+        .input-group input:focus, .input-group textarea:focus, .input-group select:focus {
+            outline: none; border-color: #667eea; box-shadow: 0 0 0 4px rgba(102,126,234,0.1);
+        }
+        .input-group textarea { min-height: 100px; resize: vertical; }
+        .btn {
+            width: 100%; padding: 16px; background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: 600;
+            cursor: pointer; transition: all 0.3s;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(102,126,234,0.4); }
+        .btn:active { transform: translateY(0); }
+        .btn-secondary { background: #f8f9fa; color: #666; }
+        .btn-secondary:hover { background: #f0f0f0; box-shadow: none; }
+        .btn-success { background: linear-gradient(135deg, #52c41a, #389e0d); }
+        .btn-success:hover { box-shadow: 0 8px 20px rgba(82,196,26,0.4); }
+        .tips { background: #f0f5ff; border-radius: 12px; padding: 16px; margin-bottom: 20px; }
+        .tips-title { font-size: 14px; font-weight: 600; color: #667eea; margin-bottom: 8px; }
+        .tips-list { font-size: 13px; color: #666; line-height: 1.8; }
+        .tips-list li { margin-left: 16px; }
+        /* 步骤指示器 */
+        .step-indicator {
+            display: flex; justify-content: center; align-items: center;
+            margin-bottom: 24px; gap: 8px;
+        }
+        .step-dot {
+            width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,0.4);
+            transition: all 0.3s;
+        }
+        .step-dot.active { background: white; transform: scale(1.3); }
+        .step-line { width: 40px; height: 2px; background: rgba(255,255,255,0.3); }
+        /* 步骤区域 */
+        .step-section { display: none; }
+        .step-section.active { display: block; }
+        /* 维度自评卡片 */
+        .dimension-card {
+            background: #f8f9fa; border-radius: 12px; padding: 16px; margin-bottom: 16px;
+            border: 2px solid transparent; transition: all 0.3s;
+        }
+        .dimension-card.highlight { border-color: #667eea; background: #f0f5ff; }
+        .dimension-name { font-size: 15px; font-weight: 600; color: #333; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+        .dimension-desc { font-size: 13px; color: #666; line-height: 1.6; margin-bottom: 12px; }
+        .score-input-group { display: flex; align-items: center; gap: 12px; }
+        .score-input-group input {
+            width: 80px; text-align: center; font-size: 20px; font-weight: 600;
+            padding: 10px; border: 2px solid #ddd; border-radius: 8px;
+        }
+        .score-input-group input:focus { border-color: #667eea; }
+        .score-input-group span { font-size: 14px; color: #999; }
+        .dimension-status { font-size: 12px; margin-top: 8px; }
+        .dimension-status.pass { color: #52c41a; }
+        .dimension-status.warn { color: #faad14; }
+        .dimension-status.fail { color: #ff4d4f; }
+        /* 问题卡片 */
+        .question-card {
+            background: #f8f9fa; border-radius: 12px; padding: 16px; margin-bottom: 16px;
+        }
+        .question-title { font-size: 14px; font-weight: 600; color: #333; margin-bottom: 8px; }
+        .question-desc { font-size: 12px; color: #999; margin-bottom: 12px; }
+        .radio-group { display: flex; gap: 16px; flex-wrap: wrap; }
+        .radio-item { display: flex; align-items: center; cursor: pointer; }
+        .radio-item input { width: auto; margin-right: 6px; }
+        /* 警告提示 */
+        .alert {
+            padding: 16px; border-radius: 12px; margin-bottom: 16px; font-size: 14px;
+        }
+        .alert-warning { background: #fffbe6; border: 1px solid #ffe58f; color: #d48806; }
+        .alert-danger { background: #fff2f0; border: 1px solid #ffccc7; color: #cf1322; }
+        .alert-success { background: #f6ffed; border: 1px solid #b7eb8f; color: #389e0d; }
+        .alert-info { background: #f0f5ff; border: 1px solid #adc6ff; color: #1890ff; }
+        /* 完成页面 */
+        .success-icon {
+            width: 80px; height: 80px; margin: 0 auto 20px;
+            background: linear-gradient(135deg, #52c41a, #389e0d); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; font-size: 40px;
+        }
+        .download-section { text-align: center; margin-top: 20px; }
+        /* 数据留痕提示 */
+        .data-notice {
+            background: #e6f7ff; border: 1px solid #91d5ff; border-radius: 8px;
+            padding: 12px; margin-bottom: 16px; font-size: 13px; color: #1890ff;
+        }
+        /* 进度条 */
+        .progress-bar {
+            height: 4px; background: rgba(255,255,255,0.3); border-radius: 2px; margin-bottom: 20px;
+        }
+        .progress-bar-fill {
+            height: 100%; background: white; border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+        /* 步骤标题 */
+        .step-header {
+            text-align: center; margin-bottom: 24px;
+        }
+        .step-header h2 { font-size: 20px; color: #333; margin-bottom: 8px; }
+        .step-header p { font-size: 13px; color: #999; }
+        /* 确认按钮 */
+        .confirm-btn {
+            background: #722ed1; margin-top: 8px;
+        }
+        .confirm-btn:hover { box-shadow: 0 8px 20px rgba(114,46,209,0.4); }
+        /* 修改建议 */
+        .suggestion-list {
+            background: #f8f9fa; border-radius: 12px; padding: 16px; margin-bottom: 16px;
+        }
+        .suggestion-item {
+            display: flex; align-items: flex-start; gap: 12px;
+            padding: 12px 0; border-bottom: 1px solid #e8e8e8;
+        }
+        .suggestion-item:last-child { border-bottom: none; }
+        .suggestion-num {
+            width: 24px; height: 24px; background: #667eea; color: white;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-size: 12px; font-weight: 600; flex-shrink: 0;
+        }
+        .suggestion-text { flex: 1; font-size: 14px; color: #333; line-height: 1.5; }
+        /* 推荐格式 */
+        .format-box {
+            background: #fff7e6; border: 1px solid #ffd591; border-radius: 8px;
+            padding: 12px; margin-bottom: 16px;
+        }
+        .format-title { font-size: 13px; font-weight: 600; color: #d48806; margin-bottom: 8px; }
+        .format-content { font-size: 12px; color: #666; line-height: 1.6; }
+        .format-example { margin-top: 8px; padding: 8px; background: white; border-radius: 4px; font-size: 12px; }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-in { animation: fadeInUp 0.4s ease-out forwards; }
+        /* 按钮间距 */
+        .btn-group { display: flex; flex-direction: column; gap: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 超AI讲 - 你的AI选题助手</h1>
+            <p>集团人力资源管理部</p>
+        </div>
+
+        <!-- 步骤指示器 -->
+        <div class="progress-bar">
+            <div class="progress-bar-fill" id="progressFill" style="width: 25%"></div>
+        </div>
+        <div class="step-indicator">
+            <div class="step-dot active" id="step1"></div>
+            <div class="step-line"></div>
+            <div class="step-dot" id="step2"></div>
+            <div class="step-line"></div>
+            <div class="step-dot" id="step3"></div>
+            <div class="step-line"></div>
+            <div class="step-dot" id="step4"></div>
+        </div>
+
+        <!-- ========== 步骤1：个人信息 ========== -->
+        <div id="stepSection1" class="step-section active">
+            <div class="card animate-in">
+                <div class="card-title"><span class="icon">📝</span>提交你的选题</div>
+                <div class="tips">
+                    <div class="tips-title">💡 选题小贴士</div>
+                    <ul class="tips-list">
+                        <li>选题应来自你的实际工作经验，是你在工作中摸索出来的有效方法</li>
+                        <li>优先选择高频发生的工作场景</li>
+                        <li>聚焦真实的工作痛点难点，能解决实际问题</li>
+                    </ul>
+                </div>
+
+                <div class="input-group">
+                    <label>姓名 <span style="color:#ff4d4f">*</span></label>
+                    <input type="text" id="name" placeholder="请输入你的姓名">
+                </div>
+                <div class="input-group">
+                    <label>工号 <span style="color:#ff4d4f">*</span></label>
+                    <input type="text" id="employeeId" placeholder="请输入你的员工工号">
+                </div>
+                <div class="input-group">
+                    <label>所属部门 <span style="color:#ff4d4f">*</span></label>
+                    <input type="text" id="department" placeholder="如：环境检测事业部 / 华东销售部">
+                </div>
+                <div class="input-group">
+                    <label>你的经验萃取选题 <span style="color:#ff4d4f">*</span></label>
+                    <textarea id="topic" placeholder="请简要描述你想要萃取的经验主题，例如：&#10;• 如何在销售过程中洞察客户的真实需求&#10;• 新员工入职第一周的标准化引导流程&#10;• 设备故障排查的快速定位方法" maxlength="500"></textarea>
+                    <div style="text-align:right;font-size:12px;color:#999;margin-top:4px;"><span id="charCount">0</span>/500</div>
+                </div>
+
+
+                <button class="btn" onclick="goToStep2()">
+                    <span>下一步</span> →
+                </button>
+            </div>
+        </div>
+
+        <!-- ========== 步骤2：问题回答 ========== -->
+        <div id="stepSection2" class="step-section">
+            <div class="card animate-in">
+                <div class="step-header">
+                    <h2>选题来源</h2>
+                    <p>请选择你的选题来源</p>
+                </div>
+
+                <div class="input-group">
+                    <select id="source" onchange="onSourceChange()">
+                        <option value="">-- 请选择选题来源 --</option>
+                        <option value="关键岗位">关键岗位</option>
+                        <option value="痛点难点">痛点难点</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- 三维度自评 -->
+            <div class="card animate-in" id="dimensionSection" style="display:none;">
+                <div class="step-header">
+                    <h2>三维度自评</h2>
+                    <p>请根据每个维度的说明，为你的选题打分（0-100分）</p>
+                </div>
+
+                <!-- 高价值 -->
+                <div class="dimension-card highlight" id="dim1Card">
+                    <div class="dimension-name">💰 高价值</div>
+                    <div class="dimension-desc">
+                        这个选题解决的是真实的工作问题吗？萃取出经验后，能对工作绩效有帮助吗？<br>
+                        <strong>高价值</strong> = 这个经验学完之后，能实实在在提升工作效率或质量
+                    </div>
+                    <div class="score-input-group">
+                        <input type="number" id="dim1Score" min="0" max="100" placeholder="0-100" oninput="checkDimScore(1)">
+                        <span>分（满分100）</span>
+                    </div>
+                    <div class="dimension-status" id="dim1Status"></div>
+                </div>
+
+                <!-- 紧迫度 -->
+                <div class="dimension-card" id="dim2Card">
+                    <div class="dimension-name">🔥 紧迫度</div>
+                    <div class="dimension-desc">
+                        这个问题现在有多急迫？团队成员都深受其扰吗？<br>
+                        <strong>紧迫度高</strong> = 大家都在期盼能解决这个问题
+                    </div>
+                    <div class="score-input-group">
+                        <input type="number" id="dim2Score" min="0" max="100" placeholder="0-100" oninput="checkDimScore(2)">
+                        <span>分（满分100）</span>
+                    </div>
+                    <div class="dimension-status" id="dim2Status"></div>
+                </div>
+
+                <!-- 常发生 -->
+                <div class="dimension-card" id="dim3Card">
+                    <div class="dimension-name">🔄 常发生</div>
+                    <div class="dimension-desc">
+                        这个场景经常出现吗？除了你，还有多少人也会遇到？<br>
+                        <strong>常发生</strong> = 这个经验可以复制推广给更多人使用
+                    </div>
+                    <div class="score-input-group">
+                        <input type="number" id="dim3Score" min="0" max="100" placeholder="0-100" oninput="checkDimScore(3)">
+                        <span>分（满分100）</span>
+                    </div>
+                    <div class="dimension-status" id="dim3Status"></div>
+                </div>
+
+                <div id="dimWarning" class="alert alert-warning" style="display:none;">
+                    ⚠️ 有维度评分低于60分，建议重新思考选题方向
+                </div>
+            </div>
+
+            <!-- 萃取价值 -->
+            <div class="card animate-in" id="valueSection" style="display:none;">
+                <div class="step-header">
+                    <h2>萃取价值</h2>
+                    <p>请描述这个选题的萃取价值</p>
+                </div>
+
+                <div class="input-group">
+                    <label>解决这个问题的价值是什么？（如：提升效率、减少错误、节省成本等）</label>
+                    <textarea id="extractionValue" placeholder="请描述萃取这个经验后，能带来什么价值..." maxlength="300"></textarea>
+                </div>
+            </div>
+
+            <!-- 成功案例 -->
+            <div class="card animate-in" id="caseSection" style="display:none;">
+                <div class="step-header">
+                    <h2>成功案例确认</h2>
+                    <p>确认你是否有过成功经验</p>
+                </div>
+
+                <div class="question-card">
+                    <div class="question-title">你有没有做过这个事情的<strong>成功案例</strong>？</div>
+                    <div class="question-desc">成功案例 = 你曾经把这件事做成功过，并且总结出了有效的方法</div>
+                    <div class="radio-group">
+                        <label class="radio-item">
+                            <input type="radio" name="hasCase" value="yes" onchange="onCaseChange('yes')">
+                            <span>是的，我有成功案例</span>
+                        </label>
+                        <label class="radio-item">
+                            <input type="radio" name="hasCase" value="no" onchange="onCaseChange('no')">
+                            <span>还没有</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div id="caseHint" class="alert alert-danger" style="display:none;">
+                    ⚠️ 经验萃取需要基于成功经验，建议先积累1-2个成功案例后再进行萃取，或更换一个你更有把握的选题
+                </div>
+            </div>
+
+            <!-- 其他问题 -->
+            <div class="card animate-in" id="otherSection" style="display:none;">
+                <div class="step-header">
+                    <h2>深入思考</h2>
+                    <p>请认真思考以下问题，这将帮助你完善选题</p>
+                </div>
+
+                <div class="question-card">
+                    <div class="question-title">💎 你在这个问题上踩过哪些坑？有哪些「弯路教训」？</div>
+                    <div class="question-desc">弯路教训同样有价值，可以帮助他人避免同样的错误</div>
+                    <textarea id="lessonLearned" placeholder="请描述你经历过的困难、错误或教训..." style="width:100%;padding:12px;border:2px solid #e8e8e8;border-radius:8px;font-size:14px;resize:vertical;min-height:80px;" maxlength="300"></textarea>
+                </div>
+
+                <div class="question-card">
+                    <div class="question-title">🎯 如果萃取成功，你期望达到什么效果？</div>
+                    <div class="question-desc">越具体越好，最好能说出具体的数据或指标</div>
+                    <textarea id="expectedEffect" placeholder="请描述萃取成功后期望达到的效果..." style="width:100%;padding:12px;border:2px solid #e8e8e8;border-radius:8px;font-size:14px;resize:vertical;min-height:80px;" maxlength="300"></textarea>
+                </div>
+
+                <div class="question-card">
+                    <div class="question-title">👥 这个经验适合谁学习？</div>
+                    <div class="question-desc">明确目标学员可以让萃取更聚焦</div>
+                    <textarea id="targetAudience" placeholder="请描述这个经验适合哪些岗位或人员学习..." style="width:100%;padding:12px;border:2px solid #e8e8e8;border-radius:8px;font-size:14px;resize:vertical;min-height:80px;" maxlength="200"></textarea>
+                </div>
+
+                <div class="question-card">
+                    <div class="question-title">🔍 你的选题是否一目了然？</div>
+                    <div class="question-desc">别人一看你的选题，是否能立刻知道：这是什么场景的经验？要达成什么结果？</div>
+                    <div class="radio-group">
+                        <label class="radio-item">
+                            <input type="radio" name="isClear" value="yes" onchange="onIsClearChange('yes')">
+                            <span>是的，一看就懂</span>
+                        </label>
+                        <label class="radio-item">
+                            <input type="radio" name="isClear" value="somewhat" onchange="onIsClearChange('somewhat')">
+                            <span>大概能理解</span>
+                        </label>
+                        <label class="radio-item">
+                            <input type="radio" name="isClear" value="no" onchange="onIsClearChange('no')">
+                            <span>不够清晰</span>
+                        </label>
+                    </div>
+                    <div id="isClearHint" class="alert alert-warning" style="display:none; margin-top:12px;">
+                        💡 建议完善选题表述，让别人能快速理解你的经验和目标
+                    </div>
+                </div>
+            </div>
+
+            <!-- 按钮 -->
+            <div id="step2Btns" style="display:none;">
+                <div class="btn-group">
+                    <button class="btn btn-secondary" onclick="goToStep1()">
+                        ← 上一步
+                    </button>
+                    <button class="btn confirm-btn" onclick="goToStep3()">
+                        <span>→</span> 查看修改建议
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== 步骤3：修改建议 ========== -->
+        <div id="stepSection3" class="step-section">
+            <div class="card animate-in">
+                <div class="step-header">
+                    <h2>选题修改建议</h2>
+                    <p>基于你的填写，以下是给你的参考建议</p>
+                </div>
+
+                <div class="suggestion-list" id="suggestionList">
+                    <!-- 动态生成 -->
+                </div>
+
+                <div class="format-box" id="formatBox">
+                    <div class="format-title">📝 你的选题优化方向</div>
+                    <div class="format-content" id="optimizationContent">
+                        <!-- 动态生成的优化建议 -->
+                    </div>
+                    <div class="format-example" id="formatExample">
+                        <!-- 动态生成的改写示例 -->
+                    </div>
+                </div>
+
+                <div class="question-card">
+                    <div class="question-title">✏️ 是否需要修改选题？</div>
+                    <div class="radio-group" style="margin-bottom: 12px;">
+                        <label class="radio-item">
+                            <input type="radio" name="needRevise" value="yes" onclick="toggleReviseInput(true)">
+                            <span>是的，我想修改</span>
+                        </label>
+                        <label class="radio-item">
+                            <input type="radio" name="needRevise" value="no" onclick="toggleReviseInput(false)">
+                            <span>不需要，当前选题可以</span>
+                        </label>
+                    </div>
+                    <div id="reviseInputArea" style="display:none;">
+                        <label>请输入修改后的选题：</label>
+                        <textarea id="revisedTopic" placeholder="请输入修改后的选题表述..." maxlength="500" style="margin-top:8px;"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-secondary" onclick="goToStep2()">
+                    ← 返回修改
+                </button>
+                <button class="btn confirm-btn" onclick="submitValidation()">
+                    <span>✓</span> 完成验证
+                </button>
+            </div>
+        </div>
+
+        <!-- ========== 步骤4：完成 ========== -->
+        <div id="stepSection4" class="step-section">
+            <div class="card animate-in">
+                <div class="success-icon">✓</div>
+                <div style="text-align:center;">
+                    <h2 style="font-size:20px;color:#333;margin-bottom:8px;">验证完成！</h2>
+                    <p style="font-size:14px;color:#666;margin-bottom:20px;">你的选题已通过初步验证</p>
+                </div>
+
+                <div class="alert alert-success">
+                    ✅ 验证数据已保存，你可以下载验证报告
+                </div>
+
+                <div style="background:#f0f7ff;border-left:4px solid #667eea;padding:12px 16px;border-radius:8px;margin-bottom:20px;">
+                    <div style="font-size:13px;color:#333;line-height:1.8;">
+                        💡 <strong>温馨提示：</strong>请下载PDF验证报告，可用于和上级领导交流、确认选题方向
+                    </div>
+                </div>
+
+                <div class="download-section">
+                    <button class="btn btn-success" id="downloadBtn" onclick="generatePDF()">
+                        <span>📕</span> 下载验证报告（PDF）
+                    </button>
+                </div>
+
+                <button class="btn btn-secondary" onclick="restart()" style="margin-top:16px;">
+                    ← 重新验证
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========== 全局状态 ==========
+        var formData = {
+            name: '',
+            employeeId: '',
+            department: '',
+            topic: '',
+            source: '',
+            dim1Score: '',
+            dim2Score: '',
+            dim3Score: '',
+            extractionValue: '',
+            hasCase: '',
+            lessonLearned: '',
+            expectedEffect: '',
+            targetAudience: '',
+            isClear: '',  // 选题是否一目了然
+            needRevise: '',
+            revisedTopic: '',
+            submitTime: ''
+        };
+
+        // ========== 字符计数 ==========
+        document.getElementById('topic').addEventListener('input', function() {
+            document.getElementById('charCount').textContent = this.value.length;
+        });
+
+        // ========== 步骤1 → 步骤2 ==========
+        function goToStep2() {
+            var name = document.getElementById('name').value.trim();
+            var employeeId = document.getElementById('employeeId').value.trim();
+            var department = document.getElementById('department').value.trim();
+            var topic = document.getElementById('topic').value.trim();
+
+            if (!name) { alert('请输入姓名'); return; }
+            if (!employeeId) { alert('请输入工号'); return; }
+            if (!department) { alert('请输入部门'); return; }
+            if (!topic) { alert('请输入选题'); return; }
+
+            // 保存数据
+            formData.name = name;
+            formData.employeeId = employeeId;
+            formData.department = department;
+            formData.topic = topic;
+
+            // 保存中断记录
+            saveInterruptRecord();
+
+            // 切换步骤
+            document.getElementById('stepSection1').classList.remove('active');
+            document.getElementById('stepSection2').classList.add('active');
+            updateStepIndicator(2);
+            updateProgress(50);
+        }
+
+        // ========== 步骤2 → 步骤1 ==========
+        function goToStep1() {
+            document.getElementById('stepSection2').classList.remove('active');
+            document.getElementById('stepSection1').classList.add('active');
+            updateStepIndicator(1);
+            updateProgress(25);
+        }
+
+        // ========== 步骤2 → 步骤3 ==========
+        function goToStep3() {
+            // 收集步骤2的数据
+            formData.extractionValue = document.getElementById('extractionValue').value.trim();
+            formData.lessonLearned = document.getElementById('lessonLearned').value.trim();
+            formData.expectedEffect = document.getElementById('expectedEffect').value.trim();
+            formData.targetAudience = document.getElementById('targetAudience').value.trim();
+
+            // 验证必填项
+            if (!formData.source) { alert('请选择选题来源'); return; }
+            if (!formData.dim1Score && formData.dim1Score !== 0) { alert('请给高价值维度评分'); return; }
+            if (!formData.dim2Score && formData.dim2Score !== 0) { alert('请给紧迫度维度评分'); return; }
+            if (!formData.dim3Score && formData.dim3Score !== 0) { alert('请给常发生维度评分'); return; }
+            if (!formData.hasCase) { alert('请确认是否有成功案例'); return; }
+            if (!formData.isClear) { alert('请选择选题是否一目了然'); return; }
+
+            // 生成修改建议
+            generateSuggestions();
+
+            // 切换步骤
+            document.getElementById('stepSection2').classList.remove('active');
+            document.getElementById('stepSection3').classList.add('active');
+            updateStepIndicator(3);
+            updateProgress(75);
+        }
+
+        // ========== 选题来源变化 ==========
+        function onSourceChange() {
+            var source = document.getElementById('source').value;
+            formData.source = source;
+
+            if (source) {
+                document.getElementById('dimensionSection').style.display = 'block';
+                document.getElementById('valueSection').style.display = 'block';
+                document.getElementById('caseSection').style.display = 'block';
+                document.getElementById('otherSection').style.display = 'block';
+                document.getElementById('step2Btns').style.display = 'block';
+            }
+        }
+
+        // ========== 维度评分检查 ==========
+        function checkDimScore(dim) {
+            var score = parseInt(document.getElementById('dim' + dim + 'Score').value) || 0;
+            var status = document.getElementById('dim' + dim + 'Status');
+            var warning = document.getElementById('dimWarning');
+
+            // 保存分数
+            formData['dim' + dim + 'Score'] = score;
+
+            if (score >= 80) {
+                status.textContent = '✨ 优秀';
+                status.className = 'dimension-status pass';
+            } else if (score >= 60) {
+                status.textContent = '✓ 达标';
+                status.className = 'dimension-status pass';
+            } else if (score > 0) {
+                status.textContent = '⚠ 建议提升';
+                status.className = 'dimension-status warn';
+            } else {
+                status.textContent = '';
+                status.className = 'dimension-status';
+            }
+
+            // 检查是否有低于60分的
+            var dim1 = parseInt(document.getElementById('dim1Score').value) || 0;
+            var dim2 = parseInt(document.getElementById('dim2Score').value) || 0;
+            var dim3 = parseInt(document.getElementById('dim3Score').value) || 0;
+
+            if ((dim1 > 0 && dim1 < 60) || (dim2 > 0 && dim2 < 60) || (dim3 > 0 && dim3 < 60)) {
+                warning.style.display = 'block';
+            } else {
+                warning.style.display = 'none';
+            }
+        }
+
+        // ========== 成功案例变化 ==========
+        function onCaseChange(value) {
+            formData.hasCase = value;
+            document.getElementById('caseHint').style.display = (value === 'no') ? 'block' : 'none';
+        }
+
+        // ========== 选题清晰度变化 ==========
+        function onIsClearChange(value) {
+            formData.isClear = value;
+            document.getElementById('isClearHint').style.display = (value === 'no' || value === 'somewhat') ? 'block' : 'none';
+        }
+
+        // ========== 是否修改选题 ==========
+        function toggleReviseInput(show) {
+            formData.needRevise = show ? 'yes' : 'no';
+            document.getElementById('reviseInputArea').style.display = show ? 'block' : 'none';
+            if (!show) {
+                document.getElementById('revisedTopic').value = '';
+            }
+        }
+
+        // ========== 生成修改建议 ==========
+        function generateSuggestions() {
+            var suggestions = [];
+            var topic = formData.topic;
+            var allInfo = {
+                topic: topic,
+                value: formData.extractionValue,
+                effect: formData.expectedEffect,
+                audience: formData.targetAudience,
+                lesson: formData.lessonLearned,
+                isClear: formData.isClear
+            };
+
+            // ===== 分析初始选题 =====
+            var topicAnalysis = analyzeTopic(topic);
+
+            // ===== 生成具体的改写建议（核心功能）=====
+            var rewriteSuggestion = generateRewriteSuggestion(allInfo, topicAnalysis);
+            if (rewriteSuggestion) {
+                suggestions.push(rewriteSuggestion);
+            }
+
+            // ===== 基于选题清晰度的建议 =====
+            if (formData.isClear === 'no' || formData.isClear === 'somewhat') {
+                suggestions.push('💡 建议让你的选题更「可视化」——让别人一听就知道：这个经验用在什么场景、要做什么动作、达成什么结果');
+            }
+
+            // ===== 基于目标学员的建议 =====
+            if (formData.targetAudience && formData.targetAudience.length > 5) {
+                suggestions.push('📌 建议在选题中体现目标学员特征，如：' + formData.targetAudience.split('，')[0] + '如何...');
+            }
+
+            // ===== 基于萃取价值的建议 =====
+            if (formData.extractionValue && formData.extractionValue.length > 10) {
+                var valueKeyword = extractKeyword(formData.extractionValue, ['提升', '减少', '提高', '优化', '解决', '改善', '增加']);
+                if (valueKeyword) {
+                    suggestions.push('🎯 根据你描述的价值，建议在选题中加入「' + valueKeyword + '」等结果导向的词汇');
+                }
+            }
+
+            // ===== 基于期望效果的建议 =====
+            if (formData.expectedEffect && formData.expectedEffect.length > 5) {
+                var effectMatch = formData.expectedEffect.match(/(\d+[%％]?|明显|显著)/);
+                if (effectMatch) {
+                    suggestions.push('📊 你提到了具体的期望效果，这很好！建议在选题中体现这个目标');
+                }
+            }
+
+            // ===== 默认建议 =====
+            if (suggestions.length <= 1) {
+                suggestions.push('✨ 你的选题方向不错！建议进一步细化，使其更具实操性');
+            }
+
+            // ===== 最终格式建议 =====
+            suggestions.push('📋 推荐格式：「如何通过[具体方法/动作] [在什么场景下] [达成什么结果]」');
+
+            // ===== 更新优秀选题要素框（核心优化）=====
+            updateFormatBox(allInfo, topicAnalysis);
+
+            // 渲染建议列表（精简）
+            var html = '';
+            suggestions.forEach(function(sug, i) {
+                html += '<div class="suggestion-item">' +
+                    '<span class="suggestion-num">' + (i + 1) + '</span>' +
+                    '<span class="suggestion-text">' + sug + '</span>' +
+                    '</div>';
+            });
+            document.getElementById('suggestionList').innerHTML = html;
+        }
+
+        // ========== 更新优秀选题要素框 ==========
+        function updateFormatBox(info, analysis) {
+            var topic = info.topic;
+            var contentHTML = '';
+            var exampleHTML = '';
+
+            // 1. 解析用户录入的内容
+            var method = extractMethod(info.lesson, info.value);
+            var scene = extractScene(info.audience);
+            var result = extractResult(info.effect, info.value);
+
+            // 2. 生成优化方向内容
+            contentHTML += '<div style="margin-bottom:12px;"><strong>你的选题分析：</strong></div>';
+            contentHTML += '<div style="font-size:13px;line-height:2;">';
+            contentHTML += '📌 <strong>初始选题：</strong>' + topic + '<br>';
+
+            if (method && method !== '有效的沟通技巧') {
+                contentHTML += '🔧 <strong>可提炼的方法/动作：</strong>' + method + '<br>';
+            }
+            if (scene) {
+                contentHTML += '🎯 <strong>适用场景/人群：</strong>' + scene + '<br>';
+            }
+            if (result && result !== '提升工作效率') {
+                contentHTML += '📈 <strong>期望达成的结果：</strong>' + result + '<br>';
+            }
+            contentHTML += '</div>';
+
+            // 3. 生成改写示例
+            if (method && scene && result) {
+                exampleHTML = '<div style="margin-top:12px;padding:8px;background:white;border-radius:4px;">';
+                exampleHTML += '<div style="font-size:12px;color:#666;margin-bottom:6px;">✨ 建议改写为：</div>';
+                exampleHTML += '<div style="font-weight:600;color:#667eea;">「如何通过' + method + '，在' + scene + '中，' + result + '」</div>';
+                exampleHTML += '</div>';
+            } else {
+                // 如果信息不完整，给出部分改写建议
+                exampleHTML = '<div style="margin-top:12px;padding:8px;background:white;border-radius:4px;">';
+                exampleHTML += '<div style="font-size:12px;color:#666;margin-bottom:6px;">💡 建议补充以下信息以完善选题：</div>';
+                if (!method || method === '有效的沟通技巧') {
+                    exampleHTML += '<div style="font-size:12px;">• 明确具体的解决方法/动作</div>';
+                }
+                if (!scene) {
+                    exampleHTML += '<div style="font-size:12px;">• 说明适用的场景或目标人群</div>';
+                }
+                if (!result || result === '提升工作效率') {
+                    exampleHTML += '<div style="font-size:12px;">• 明确期望达成的结果</div>';
+                }
+                exampleHTML += '</div>';
+            }
+
+            // 4. 更新DOM
+            document.getElementById('optimizationContent').innerHTML = contentHTML;
+            document.getElementById('formatExample').innerHTML = exampleHTML;
+        }
+
+        // ========== 分析选题结构 ==========
+        function analyzeTopic(topic) {
+            var analysis = {
+                hasVerb: /如何|怎么|怎样|如何做|怎样做/.test(topic),
+                hasResult: /提升|优化|改善|解决|提高|增加|达成|减少|降低/.test(topic),
+                hasScene: /在|面对|处理|应对|进行|开展/.test(topic),
+                hasTarget: /客户|员工|新人|团队|同事|领导|部门/.test(topic),
+                topicLength: topic.length,
+                keywords: []
+            };
+
+            // 提取关键词
+            var words = topic.match(/[\u4e00-\u9fa5]{2,}/g) || [];
+            analysis.keywords = words;
+
+            return analysis;
+        }
+
+        // ========== 提取关键词 ==========
+        function extractKeyword(text, keywords) {
+            for (var i = 0; i < keywords.length; i++) {
+                if (text.indexOf(keywords[i]) !== -1) {
+                    return keywords[i];
+                }
+            }
+            return null;
+        }
+
+        // ========== 生成具体改写建议 ==========
+        function generateRewriteSuggestion(info, analysis) {
+            var topic = info.topic;
+            var suggestion = '';
+
+            // 如果选题清晰度高，直接给出改写建议
+            if (info.isClear === 'yes' && analysis.topicLength > 10) {
+                // 基于萃取价值生成改写
+                if (info.value && info.value.length > 10) {
+                    var scene = extractScene(info.targetAudience);
+                    var method = extractMethod(info.lesson, info.value);
+                    var result = extractResult(info.expectedEffect, info.value);
+
+                    if (scene && method && result) {
+                        suggestion = '🔄 基于你的信息，建议将选题改为：<br><strong>「如何通过' + method + '在' + scene + '中' + result + '」</strong><br><span style="color:#666;font-size:12px;">（方法：' + method + ' | 场景：' + scene + ' | 结果：' + result + '）</span>';
+                        return suggestion;
+                    }
+                }
+            }
+
+            // 如果选题不够清晰或不完整，给出针对性的改写建议
+            var missing = [];
+            var additions = [];
+
+            if (!analysis.hasVerb) {
+                missing.push('开头使用"如何"或"怎样"');
+            }
+
+            if (!analysis.hasResult) {
+                additions.push('明确要达成的结果（如：提升XX、解决XX问题）');
+            }
+
+            if (!analysis.hasScene) {
+                additions.push('说明具体的使用场景（如：在XX情况下、处理XX问题时）');
+            }
+
+            if (!analysis.hasTarget && info.targetAudience) {
+                additions.push('加入目标学员特征');
+            }
+
+            // 生成具体的改写示例
+            var examples = [];
+
+            // 基于用户提供的信息生成改写示例
+            if (info.targetAudience) {
+                var audience = info.targetAudience.split(/[,，]/)[0].trim();
+                examples.push('「如何帮助' + audience + '...' + (info.value ? '实现' + info.value.split(/[,，]/)[0] : '提升工作效率') + '」');
+            }
+
+            if (info.expectedEffect) {
+                var effect = info.expectedEffect.substring(0, 20);
+                examples.push('「如何通过' + (info.lesson ? info.lesson.split(/[,，]/)[0] : '有效方法') + '...' + effect + '」');
+            }
+
+            if (info.lesson && info.lesson.length > 5) {
+                var lesson = info.lesson.split(/[,，]/)[0].trim();
+                if (lesson.length > 2 && lesson.length < 15) {
+                    examples.push('「如何避免' + lesson + '...' + (info.value ? info.value.split(/[,，]/)[0] : '做好XX工作') + '」');
+                }
+            }
+
+            // 生成建议
+            if (missing.length > 0 || additions.length > 0) {
+                suggestion = '✏️ 选题优化建议：<br>';
+                if (missing.length > 0) {
+                    suggestion += '• 建议' + missing.join('、') + '<br>';
+                }
+                if (additions.length > 0) {
+                    suggestion += '• 建议' + additions.join('、') + '<br>';
+                }
+
+                if (examples.length > 0) {
+                    suggestion += '<br><strong>参考改写方向：</strong><br>';
+                    examples.slice(0, 2).forEach(function(ex) {
+                        suggestion += '<span style="color:#667eea;">→ ' + ex + '</span><br>';
+                    });
+                }
+            }
+
+            return suggestion;
+        }
+
+        // ========== 提取场景 ==========
+        function extractScene(text) {
+            if (!text) return null;
+            var scenes = text.match(/[在当面对对于]+[^，,。.。]+[中时]/g);
+            if (scenes && scenes.length > 0) {
+                return scenes[0].replace(/在|中/g, '');
+            }
+            // 简单场景提取
+            var words = text.split(/[,，]/);
+            if (words.length > 0) {
+                return words[0].substring(0, 10);
+            }
+            return null;
+        }
+
+        // ========== 提取方法 ==========
+        function extractMethod(lesson, value) {
+            var text = lesson || value || '';
+            var methods = text.match(/通过[^，,]+|利用[^，,]+|采用[^，,]+|使用[^，,]+/g);
+            if (methods && methods.length > 0) {
+                var method = methods[0].replace(/通过|利用|采用|使用/g, '');
+                return method.substring(0, 10);
+            }
+            // 提取动词短语
+            var verbs = text.match(/[维护|建立|沟通|协调|分析|处理|优化|提升|改善]+[^，,。.。]+/g);
+            if (verbs && verbs.length > 0) {
+                return verbs[0].substring(0, 10);
+            }
+            return '有效的沟通技巧';
+        }
+
+        // ========== 提取结果 ==========
+        function extractResult(effect, value) {
+            var text = effect || value || '';
+            var results = text.match(/[提升|优化|改善|解决|提高|增加|达成|减少|降低]+[^，,。.。]+/g);
+            if (results && results.length > 0) {
+                return results[0].substring(0, 15);
+            }
+            // 提取数字指标
+            var nums = text.match(/\d+[%％]?/g);
+            if (nums && nums.length > 0) {
+                return '提升' + nums[0];
+            }
+            return '提升工作效率';
+        }
+
+        // ========== 提交验证 ==========
+        function submitValidation() {
+            formData.revisedTopic = document.getElementById('revisedTopic').value.trim();
+
+            if (formData.needRevise === 'yes' && !formData.revisedTopic) {
+                alert('请输入修改后的选题');
+                return;
+            }
+
+            formData.submitTime = new Date().toLocaleString('zh-CN');
+
+            // 保存完整记录
+            saveCompleteRecord();
+
+            // 切换到步骤4
+            document.getElementById('stepSection3').classList.remove('active');
+            document.getElementById('stepSection4').classList.add('active');
+            updateStepIndicator(4);
+            updateProgress(100);
+        }
+
+        // ========== 步骤指示器更新 ==========
+        function updateStepIndicator(step) {
+            for (var i = 1; i <= 4; i++) {
+                var dot = document.getElementById('step' + i);
+                if (i <= step) {
+                    dot.classList.add('active');
+                } else {
+                    dot.classList.remove('active');
+                }
+            }
+        }
+
+        // ========== 进度条更新 ==========
+        function updateProgress(percent) {
+            document.getElementById('progressFill').style.width = percent + '%';
+        }
+
+        // ========== 重新开始 ==========
+        function restart() {
+            // 重置表单
+            document.getElementById('name').value = '';
+            document.getElementById('employeeId').value = '';
+            document.getElementById('department').value = '';
+            document.getElementById('topic').value = '';
+            document.getElementById('charCount').textContent = '0';
+            document.getElementById('source').value = '';
+            document.getElementById('dim1Score').value = '';
+            document.getElementById('dim2Score').value = '';
+            document.getElementById('dim3Score').value = '';
+            document.getElementById('dim1Status').textContent = '';
+            document.getElementById('dim2Status').textContent = '';
+            document.getElementById('dim3Status').textContent = '';
+            document.getElementById('dimWarning').style.display = 'none';
+            document.getElementById('extractionValue').value = '';
+            document.querySelectorAll('input[name="hasCase"]').forEach(function(r) { r.checked = false; });
+            document.getElementById('caseHint').style.display = 'none';
+            document.getElementById('lessonLearned').value = '';
+            document.getElementById('expectedEffect').value = '';
+            document.getElementById('targetAudience').value = '';
+            document.querySelectorAll('input[name="isClear"]').forEach(function(r) { r.checked = false; });
+            document.getElementById('isClearHint').style.display = 'none';
+            document.querySelectorAll('input[name="needRevise"]').forEach(function(r) { r.checked = false; });
+            document.getElementById('reviseInputArea').style.display = 'none';
+            document.getElementById('revisedTopic').value = '';
+
+            // 隐藏步骤2的子模块
+            document.getElementById('dimensionSection').style.display = 'none';
+            document.getElementById('valueSection').style.display = 'none';
+            document.getElementById('caseSection').style.display = 'none';
+            document.getElementById('otherSection').style.display = 'none';
+            document.getElementById('step2Btns').style.display = 'none';
+
+            // 重置步骤
+            document.getElementById('stepSection4').classList.remove('active');
+            document.getElementById('stepSection1').classList.add('active');
+            updateStepIndicator(1);
+            updateProgress(25);
+        }
+
+        // ========== 数据留痕 ==========
+        function getRecords() {
+            var records = localStorage.getItem('expExtractionRecords');
+            return records ? JSON.parse(records) : [];
+        }
+
+        function saveCompleteRecord() {
+            var records = getRecords();
+            formData.status = 'completed';
+            formData.recordId = Date.now();
+            records.push(formData);
+            localStorage.setItem('expExtractionRecords', JSON.stringify(records));
+        }
+
+        function saveInterruptRecord() {
+            var records = getRecords();
+            var interrupt = {
+                name: formData.name,
+                employeeId: formData.employeeId,
+                department: formData.department,
+                topic: formData.topic,
+                status: 'interrupted',
+                recordId: Date.now(),
+                interruptTime: new Date().toLocaleString('zh-CN')
+            };
+            records.push(interrupt);
+            localStorage.setItem('expExtractionRecords', JSON.stringify(records));
+        }
+
+        // ========== 生成PDF文档 ==========
+        function generatePDF() {
+            try {
+                var doc = new window.jspDF();
+                var pageWidth = 210;
+                var margin = 20;
+                var currentY = 30;
+
+                // 标题
+                doc.setFontSize(18);
+                doc.setTextColor(40, 40, 40);
+                doc.text('经验萃取选题验证报告', pageWidth / 2, currentY, { align: 'center' });
+                currentY += 12;
+
+                // 基本信息
+                doc.setFontSize(13);
+                doc.setTextColor(60, 60, 60);
+                doc.text('一、基本信息', margin, currentY);
+                currentY += 8;
+                doc.setFontSize(10);
+                doc.setTextColor(80, 80, 80);
+                doc.text('姓名：' + formData.name, margin + 5, currentY); currentY += 6;
+                doc.text('工号：' + formData.employeeId, margin + 5, currentY); currentY += 6;
+                doc.text('部门：' + formData.department, margin + 5, currentY); currentY += 6;
+                doc.text('选题来源：' + formData.source, margin + 5, currentY); currentY += 6;
+                doc.text('提交时间：' + formData.submitTime, margin + 5, currentY); currentY += 12;
+
+                // 选题内容
+                doc.setFontSize(13);
+                doc.setTextColor(60, 60, 60);
+                doc.text('二、选题内容', margin, currentY);
+                currentY += 8;
+                doc.setFontSize(10);
+                doc.setTextColor(80, 80, 80);
+                var topicLines = doc.splitTextToSize(formData.topic, pageWidth - margin * 2 - 10);
+                doc.text(topicLines, margin + 5, currentY);
+                currentY += topicLines.length * 5 + 10;
+
+                // 三维度自评
+                doc.setFontSize(13);
+                doc.setTextColor(60, 60, 60);
+                doc.text('三、三维度自评', margin, currentY);
+                currentY += 8;
+                doc.setFontSize(10);
+                doc.setTextColor(80, 80, 80);
+                doc.text('高价值：' + formData.dim1Score + '分', margin + 5, currentY); currentY += 6;
+                doc.text('紧迫度：' + formData.dim2Score + '分', margin + 5, currentY); currentY += 6;
+                doc.text('常发生：' + formData.dim3Score + '分', margin + 5, currentY); currentY += 12;
+
+                // 萃取价值与深入思考
+                doc.setFontSize(13);
+                doc.setTextColor(60, 60, 60);
+                doc.text('四、萃取价值与深入思考', margin, currentY);
+                currentY += 8;
+                doc.setFontSize(10);
+                doc.setTextColor(80, 80, 80);
+                if (formData.extractionValue) {
+                    doc.text('萃取价值：', margin + 5, currentY); currentY += 5;
+                    var valueLines = doc.splitTextToSize(formData.extractionValue, pageWidth - margin * 2 - 15);
+                    doc.text(valueLines, margin + 10, currentY); currentY += valueLines.length * 5;
+                }
+                if (formData.lessonLearned) {
+                    doc.text('弯路教训：', margin + 5, currentY); currentY += 5;
+                    var lessonLines = doc.splitTextToSize(formData.lessonLearned, pageWidth - margin * 2 - 15);
+                    doc.text(lessonLines, margin + 10, currentY); currentY += lessonLines.length * 5;
+                }
+                if (formData.expectedEffect) {
+                    doc.text('期望效果：', margin + 5, currentY); currentY += 5;
+                    var effectLines = doc.splitTextToSize(formData.expectedEffect, pageWidth - margin * 2 - 15);
+                    doc.text(effectLines, margin + 10, currentY); currentY += effectLines.length * 5;
+                }
+                if (formData.targetAudience) {
+                    doc.text('目标学员：', margin + 5, currentY); currentY += 5;
+                    var audienceLines = doc.splitTextToSize(formData.targetAudience, pageWidth - margin * 2 - 15);
+                    doc.text(audienceLines, margin + 10, currentY); currentY += audienceLines.length * 5 + 10;
+                }
+
+                // 选题修改
+                doc.setFontSize(13);
+                doc.setTextColor(60, 60, 60);
+                doc.text('五、选题修改', margin, currentY);
+                currentY += 8;
+                doc.setFontSize(10);
+                doc.setTextColor(80, 80, 80);
+                doc.text('是否修改选题：' + (formData.needRevise === 'yes' ? '是' : '否'), margin + 5, currentY);
+                if (formData.needRevise === 'yes' && formData.revisedTopic) {
+                    currentY += 6;
+                    doc.text('修改后选题：', margin + 5, currentY); currentY += 5;
+                    var revisedLines = doc.splitTextToSize(formData.revisedTopic, pageWidth - margin * 2 - 15);
+                    doc.text(revisedLines, margin + 10, currentY);
+                }
+                currentY += 20;
+
+                // 落款
+                doc.setFontSize(10);
+                doc.setTextColor(100, 100, 100);
+                doc.text('集团人力资源管理部', pageWidth - margin, currentY, { align: 'right' });
+
+                // 保存
+                doc.save('选题验证报告_' + formData.name + '_' + formData.employeeId + '.pdf');
+
+            } catch (e) {
+                console.error('PDF生成失败:', e);
+                alert('PDF生成失败，请稍后重试');
+            }
+        }
+
+        // ========== 管理员导出功能 ==========
+        window.exportAllRecords = function() {
+            var records = getRecords();
+            if (records.length === 0) {
+                alert('暂无验证数据');
+                return;
+            }
+
+            // 生成CSV
+            var csv = '记录ID,姓名,工号,部门,选题,选题来源,高价值,紧迫度,常发生,萃取价值,是否有成功案例,弯路教训,期望效果,目标学员,选题是否一目了然,是否修改选题,修改后选题,提交时间,状态\n';
+
+            records.forEach(function(r) {
+                csv += [
+                    r.recordId || '',
+                    r.name || '',
+                    r.employeeId || '',
+                    r.department || '',
+                    (r.topic || '').replace(/,/g, '，').replace(/\n/g, ' '),
+                    r.source || '',
+                    r.dim1Score || '',
+                    r.dim2Score || '',
+                    r.dim3Score || '',
+                    (r.extractionValue || '').replace(/,/g, '，'),
+                    r.hasCase === 'yes' ? '是' : (r.hasCase === 'no' ? '否' : ''),
+                    (r.lessonLearned || '').replace(/,/g, '，'),
+                    (r.expectedEffect || '').replace(/,/g, '，'),
+                    (r.targetAudience || '').replace(/,/g, '，'),
+                    r.isClear === 'yes' ? '一看就懂' : (r.isClear === 'somewhat' ? '大概能理解' : (r.isClear === 'no' ? '不够清晰' : '')),
+                    r.needRevise === 'yes' ? '是' : '否',
+                    (r.revisedTopic || '').replace(/,/g, '，'),
+                    r.submitTime || r.interruptTime || '',
+                    r.status || ''
+                ].join(',') + '\n';
+            });
+
+            var blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = '选题验证全部数据_' + new Date().toISOString().slice(0,10) + '.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        };
+
+        // ========== 初始化 ==========
+        console.log('💡 管理员提示：控制台输入 exportAllRecords() 可导出所有验证数据');
+    </script>
+</body>
+</html>
