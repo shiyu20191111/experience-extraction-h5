@@ -4,8 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>超AI讲 - 你的AI选题助手</title>
-    <!-- Word生成库 -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -1193,76 +1191,94 @@
         // ========== 生成Word文档 ==========
         function generateWord() {
             try {
-                // 检测html2canvas是否加载
-                if (typeof html2canvas === 'undefined') {
-                    alert('文档生成库加载失败，请检查网络后重试');
-                    return;
+                var downloadBtn = document.getElementById('downloadBtn');
+                if (downloadBtn) {
+                    downloadBtn.innerHTML = '<span>⏳</span> 生成中...';
+                    downloadBtn.disabled = true;
                 }
 
-                // 显示加载提示
-                var downloadBtn = document.getElementById('downloadBtn');
-                var originalText = downloadBtn.innerHTML;
-                downloadBtn.innerHTML = '<span>⏳</span> 生成中...';
-                downloadBtn.disabled = true;
-
-                // 生成Word文档（HTML格式）
+                // 组装Word HTML内容
                 var wordHTML = '<html xmlns:o="urn:schemas-microsoft-com:office:office" ' +
                     'xmlns:w="urn:schemas-microsoft-com:office:word" ' +
                     'xmlns="http://www.w3.org/TR/REC-html40">' +
                     '<head><meta charset="UTF-8"></head><body>' +
-                    '<h1 style="text-align:center;">经验萃取选题验证报告</h1>' +
-                    '<h3>一、基本信息</h3>' +
-                    '<p><b>姓名：</b>' + formData.name + '</p>' +
-                    '<p><b>工号：</b>' + formData.employeeId + '</p>' +
-                    '<p><b>部门：</b>' + formData.department + '</p>' +
-                    '<p><b>选题来源：</b>' + (formData.source || '大赛选题') + '</p>' +
-                    '<p><b>提交时间：</b>' + formData.submitTime + '</p>' +
-                    '<h3>二、选题内容</h3>' +
-                    '<p><b>' + (formData.needRevise === 'yes' && formData.revisedTopic ? '修改后选题：</b>' + formData.revisedTopic + '</p><p style="color:#666;font-size:12px;">（原选题：' + formData.topic + '）' : '选题：</b>' + formData.topic) + '</p>' +
-                    '<h3>三、三维度自评</h3>' +
-                    '<p><b>高价值：</b>' + formData.dim1Score + '分</p>' +
-                    '<p><b>紧迫度：</b>' + formData.dim2Score + '分</p>' +
-                    '<p><b>常发生：</b>' + formData.dim3Score + '分</p>' +
-                    '<h3>四、萃取价值与深入思考</h3>';
+                    '<h1 style="text-align:center;">经验萃取选题验证报告</h1>';
 
-                if (formData.extractionValue) {
-                    wordHTML += '<p><b>萃取价值：</b>' + formData.extractionValue + '</p>';
-                }
-                if (formData.lessonLearned) {
-                    wordHTML += '<p><b>弯路教训：</b>' + formData.lessonLearned + '</p>';
-                }
-                if (formData.expectedEffect) {
-                    wordHTML += '<p><b>期望效果：</b>' + formData.expectedEffect + '</p>';
-                }
-                if (formData.targetAudience) {
-                    wordHTML += '<p><b>目标学员：</b>' + formData.targetAudience + '</p>';
+                wordHTML += '<h3>一、基本信息</h3>';
+                wordHTML += '<p><b>姓名：</b>' + (formData.name||'') + '</p>';
+                wordHTML += '<p><b>工号：</b>' + (formData.employeeId||'') + '</p>';
+                wordHTML += '<p><b>部门：</b>' + (formData.department||'') + '</p>';
+                wordHTML += '<p><b>选题来源：</b>' + (formData.source || '大赛选题') + '</p>';
+                wordHTML += '<p><b>提交时间：</b>' + (formData.submitTime||'') + '</p>';
+
+                wordHTML += '<h3>二、选题内容</h3>';
+                if (formData.needRevise === 'yes' && formData.revisedTopic) {
+                    wordHTML += '<p><b>修改后选题：</b>' + formData.revisedTopic + '</p>';
+                    wordHTML += '<p style="color:#666;font-size:12px;">（原选题：' + (formData.topic||'') + '）</p>';
+                } else {
+                    wordHTML += '<p><b>选题：</b>' + (formData.topic||'') + '</p>';
                 }
 
-                wordHTML += '<h3>五、选题修改</h3>' +
-                    '<p><b>是否修改选题：</b>' + (formData.needRevise === 'yes' ? '是' : '否') + '</p>' +
-                    '<p style="text-align:right;color:#999;margin-top:40px;">集团人力资源管理部</p>' +
-                    '</body></html>';
+                wordHTML += '<h3>三、三维度自评</h3>';
+                wordHTML += '<p><b>高价值：</b>' + (formData.dim1Score||0) + '分</p>';
+                wordHTML += '<p><b>紧迫度：</b>' + (formData.dim2Score||0) + '分</p>';
+                wordHTML += '<p><b>常发生：</b>' + (formData.dim3Score||0) + '分</p>';
 
-                // 创建Blob并下载
-                var blob = new Blob([wordHTML], { type: 'application/msword' });
-                var url = URL.createObjectURL(blob);
-                var a = document.createElement('a');
-                a.href = url;
-                a.download = '选题验证报告_' + formData.name + '_' + formData.employeeId + '.doc';
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
+                wordHTML += '<h3>四、萃取价值与深入思考</h3>';
+                if (formData.extractionValue) wordHTML += '<p><b>萃取价值：</b>' + formData.extractionValue + '</p>';
+                if (formData.lessonLearned) wordHTML += '<p><b>弯路教训：</b>' + formData.lessonLearned + '</p>';
+                if (formData.expectedEffect) wordHTML += '<p><b>期望效果：</b>' + formData.expectedEffect + '</p>';
+                if (formData.targetAudience) wordHTML += '<p><b>目标学员：</b>' + formData.targetAudience + '</p>';
+
+                wordHTML += '<h3>五、选题修改</h3>';
+                wordHTML += '<p><b>是否修改选题：</b>' + (formData.needRevise === 'yes' ? '是' : '否') + '</p>';
+                wordHTML += '<p style="text-align:right;color:#999;margin-top:40px;">集团人力资源管理部</p>';
+                wordHTML += '</body></html>';
+
+                // 检测是否移动端
+                var ua = navigator.userAgent;
+                var isMobile = /Android|iPhone|iPad|iPod|Windows Phone|MicroMessenger/i.test(ua);
+
+                var fileName = '选题验证报告_' + (formData.name||'user') + '.doc';
+
+                if (isMobile) {
+                    // 移动端：用 data URI 方式触发下载（兼容性更好）
+                    var dataUri = 'data:application/msword;charset=utf-8,' + encodeURIComponent(wordHTML);
+                    var a = document.createElement('a');
+                    a.href = dataUri;
+                    a.download = fileName;
+                    a.style.display = 'none';
+                    a.target = '_blank';
+                    document.body.appendChild(a);
+                    a.click();
+                    setTimeout(function() { document.body.removeChild(a); }, 100);
+                } else {
+                    // 桌面端：用 Blob 方式
+                    var blob = new Blob([wordHTML], { type: 'application/msword;charset=utf-8' });
+                    var url = URL.createObjectURL(blob);
+                    var a = document.createElement('a');
+                    a.href = url;
+                    a.download = fileName;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    setTimeout(function() { URL.revokeObjectURL(url); }, 100);
+                }
 
                 // 恢复按钮
-                downloadBtn.innerHTML = originalText;
-                downloadBtn.disabled = false;
+                if (downloadBtn) {
+                    downloadBtn.innerHTML = '<span>📕</span> 下载验证报告（Word）';
+                    downloadBtn.disabled = false;
+                }
 
             } catch (e) {
                 console.error('Word生成失败:', e);
-                alert('Word生成失败，请稍后重试');
-                document.getElementById('downloadBtn').innerHTML = '<span>📕</span> 下载验证报告（Word）';
-                document.getElementById('downloadBtn').disabled = false;
+                alert('报告生成失败，请稍后重试');
+                var btn = document.getElementById('downloadBtn');
+                if (btn) {
+                    btn.innerHTML = '<span>📕</span> 下载验证报告（Word）';
+                    btn.disabled = false;
+                }
             }
         }
 
