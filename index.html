@@ -4,10 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>超AI讲 - 你的AI选题助手</title>
-    <!-- PDF生成库 -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
-    <!-- HTML转图片库 -->
+    <!-- Word生成库 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -218,7 +215,8 @@
                 </div>
                 <div class="input-group">
                     <label>工号 <span style="color:#ff4d4f">*</span></label>
-                    <input type="text" id="employeeId" placeholder="请输入5位数字工号" maxlength="5">
+                    <input type="text" id="employeeId" placeholder="请输入5位数字工号" maxlength="5" oninput="validateEmployeeId(this)">
+                    <div id="employeeIdError" style="color:#ff4d4f;font-size:12px;margin-top:4px;display:none;">⚠️ 工号必须为5位数字</div>
                 </div>
                 <div class="input-group">
                     <label>所属部门 <span style="color:#ff4d4f">*</span></label>
@@ -421,14 +419,7 @@
                     <!-- 动态生成 -->
                 </div>
 
-                <div class="format-box" id="formatBox">
-                    <div class="format-title">📝 你的选题优化方向</div>
-                    <div class="format-content" id="optimizationContent">
-                        <!-- 动态生成的优化建议 -->
-                    </div>
-                    <div class="format-example" id="formatExample">
-                        <!-- 动态生成的改写示例 -->
-                    </div>
+                <div class="format-box" id="formatBox" style="display:none;">
                 </div>
 
                 <div class="question-card">
@@ -473,15 +464,18 @@
                     ✅ 验证数据已保存，你可以下载验证报告
                 </div>
 
-                <div style="background:#f0f7ff;border-left:4px solid #667eea;padding:12px 16px;border-radius:8px;margin-bottom:20px;">
-                    <div style="font-size:13px;color:#333;line-height:1.8;">
-                        💡 <strong>温馨提示：</strong>请下载PDF验证报告，可用于和上级领导交流、确认选题方向
+                <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:12px 16px;margin-bottom:20px;">
+                    <div style="font-size:13px;color:#856404;line-height:1.8;">
+                        💡 <strong>管理员导数据方法：</strong><br>
+                        1. 按 <kbd style="background:#f8f9fa;padding:2px 6px;border-radius:4px;border:1px solid #ddd;">F12</kbd> 或 <kbd style="background:#f8f9fa;padding:2px 6px;border-radius:4px;border:1px solid #ddd;">Cmd+Option+J</kbd> 打开浏览器控制台<br>
+                        2. 点击上方 <strong>Console</strong> 标签<br>
+                        3. 输入 <code style="background:#f8f9fa;padding:2px 4px;border-radius:4px;">exportAllRecords()</code> 回车即可导出Excel
                     </div>
                 </div>
 
                 <div class="download-section">
-                    <button class="btn btn-success" id="downloadBtn" onclick="generatePDF()">
-                        <span>📕</span> 下载验证报告（PDF）
+                    <button class="btn btn-success" id="downloadBtn" onclick="generateWord()">
+                        <span>📕</span> 下载验证报告（Word）
                     </button>
                 </div>
 
@@ -559,6 +553,21 @@
         document.getElementById('topic').addEventListener('input', function() {
             document.getElementById('charCount').textContent = this.value.length;
         });
+
+        // ========== 工号验证 ==========
+        function validateEmployeeId(input) {
+            var value = input.value.trim();
+            var errorDiv = document.getElementById('employeeIdError');
+
+            // 只在有输入且不符合格式时显示错误
+            if (value.length > 0 && !/^\d{5}$/.test(value)) {
+                errorDiv.style.display = 'block';
+                input.style.borderColor = '#ff4d4f';
+            } else {
+                errorDiv.style.display = 'none';
+                input.style.borderColor = '#e8e8e8';
+            }
+        }
 
         // ========== 步骤1 → 步骤2 ==========
         function goToStep2() {
@@ -770,8 +779,8 @@
                 }
             }
 
-            // ===== 最终格式建议 =====
-            suggestions.push('📋 推荐格式：「如何通过[具体方法/动作] [在什么场景下] [达成什么结果]」');
+            // ===== 最终格式建议（高亮显示）=====
+            suggestions.push('📋 <strong><span style="background:#fff3cd;padding:2px 6px;border-radius:4px;">推荐格式：「如何通过[具体方法/动作] [在什么场景下] [达成什么结果]」</span></strong>');
 
             // ===== 更新优秀选题要素框（核心优化）=====
             updateFormatBox(allInfo, topicAnalysis);
@@ -1117,123 +1126,80 @@
             localStorage.setItem('expExtractionRecords', JSON.stringify(records));
         }
 
-        // ========== 生成PDF文档 ==========
-        function generatePDF() {
-            try {
-                // 检测jsPDF是否加载
-                if (typeof window.jspdf === 'undefined' || typeof window.jspdf.jsPDF !== 'function') {
-                    // 尝试等待jsPDF加载
-                    var checkCount = 0;
-                    var checkPDF = setInterval(function() {
-                        checkCount++;
-                        if (typeof window.jspdf !== 'undefined' && typeof window.jspdf.jsPDF === 'function') {
-                            clearInterval(checkPDF);
-                            doGeneratePDF();
-                        } else if (checkCount > 20) {
-                            clearInterval(checkPDF);
-                            alert('PDF生成库加载失败，请检查网络后重试');
-                        }
-                    }, 200);
-                } else {
-                    doGeneratePDF();
-                }
-            } catch (e) {
-                console.error('PDF生成失败:', e);
-                alert('PDF生成失败，请稍后重试');
-            }
-        }
-        
-        function doGeneratePDF() {
+        // ========== 生成Word文档 ==========
+        function generateWord() {
             try {
                 // 检测html2canvas是否加载
                 if (typeof html2canvas === 'undefined') {
-                    alert('PDF生成库加载失败，请检查网络后重试');
+                    alert('文档生成库加载失败，请检查网络后重试');
                     return;
                 }
 
-                // 填充PDF模板数据
-                document.getElementById('pdf_name').textContent = formData.name;
-                document.getElementById('pdf_employeeId').textContent = formData.employeeId;
-                document.getElementById('pdf_department').textContent = formData.department;
-                document.getElementById('pdf_source').textContent = formData.source || '大赛选题';
-                document.getElementById('pdf_submitTime').textContent = formData.submitTime;
-                document.getElementById('pdf_topic').textContent = formData.topic;
-                document.getElementById('pdf_dim1').textContent = formData.dim1Score;
-                document.getElementById('pdf_dim2').textContent = formData.dim2Score;
-                document.getElementById('pdf_dim3').textContent = formData.dim3Score;
-                document.getElementById('pdf_value').textContent = formData.extractionValue || '无';
-                document.getElementById('pdf_lesson').textContent = formData.lessonLearned || '无';
-                document.getElementById('pdf_effect').textContent = formData.expectedEffect || '无';
-                document.getElementById('pdf_audience').textContent = formData.targetAudience || '无';
-                document.getElementById('pdf_needRevise').textContent = formData.needRevise === 'yes' ? '是' : '否';
+                // 显示加载提示
+                var downloadBtn = document.getElementById('downloadBtn');
+                var originalText = downloadBtn.innerHTML;
+                downloadBtn.innerHTML = '<span>⏳</span> 生成中...';
+                downloadBtn.disabled = true;
 
-                // 处理空值显示
-                if (!formData.extractionValue) document.getElementById('pdf_value_block').style.display = 'none';
-                if (!formData.lessonLearned) document.getElementById('pdf_lesson_block').style.display = 'none';
-                if (!formData.expectedEffect) document.getElementById('pdf_effect_block').style.display = 'none';
-                if (!formData.targetAudience) document.getElementById('pdf_audience_block').style.display = 'none';
+                // 生成Word文档（HTML格式）
+                var wordHTML = '<html xmlns:o="urn:schemas-microsoft-com:office:office" ' +
+                    'xmlns:w="urn:schemas-microsoft-com:office:word" ' +
+                    'xmlns="http://www.w3.org/TR/REC-html40">' +
+                    '<head><meta charset="UTF-8"></head><body>' +
+                    '<h1 style="text-align:center;">经验萃取选题验证报告</h1>' +
+                    '<h3>一、基本信息</h3>' +
+                    '<p><b>姓名：</b>' + formData.name + '</p>' +
+                    '<p><b>工号：</b>' + formData.employeeId + '</p>' +
+                    '<p><b>部门：</b>' + formData.department + '</p>' +
+                    '<p><b>选题来源：</b>' + (formData.source || '大赛选题') + '</p>' +
+                    '<p><b>提交时间：</b>' + formData.submitTime + '</p>' +
+                    '<h3>二、选题内容</h3>' +
+                    '<p>' + formData.topic + '</p>' +
+                    '<h3>三、三维度自评</h3>' +
+                    '<p><b>高价值：</b>' + formData.dim1Score + '分</p>' +
+                    '<p><b>紧迫度：</b>' + formData.dim2Score + '分</p>' +
+                    '<p><b>常发生：</b>' + formData.dim3Score + '分</p>' +
+                    '<h3>四、萃取价值与深入思考</h3>';
 
-                // 获取模板元素
-                var template = document.getElementById('pdfTemplate');
+                if (formData.extractionValue) {
+                    wordHTML += '<p><b>萃取价值：</b>' + formData.extractionValue + '</p>';
+                }
+                if (formData.lessonLearned) {
+                    wordHTML += '<p><b>弯路教训：</b>' + formData.lessonLearned + '</p>';
+                }
+                if (formData.expectedEffect) {
+                    wordHTML += '<p><b>期望效果：</b>' + formData.expectedEffect + '</p>';
+                }
+                if (formData.targetAudience) {
+                    wordHTML += '<p><b>目标学员：</b>' + formData.targetAudience + '</p>';
+                }
 
-                // 使用html2canvas将HTML转换为图片
-                html2canvas(template, {
-                    scale: 2,
-                    useCORS: true,
-                    backgroundColor: '#ffffff',
-                    logging: false
-                }).then(function(canvas) {
-                    // 创建PDF
-                    var doc = new window.jspdf.jsPDF({
-                        orientation: 'portrait',
-                        unit: 'mm',
-                        format: 'a4'
-                    });
+                wordHTML += '<h3>五、选题修改</h3>' +
+                    '<p><b>是否修改选题：</b>' + (formData.needRevise === 'yes' ? '是' : '否') + '</p>' +
+                    (formData.revisedTopic ? '<p><b>修改后选题：</b>' + formData.revisedTopic + '</p>' : '') +
+                    '<p style="text-align:right;color:#999;margin-top:40px;">集团人力资源管理部</p>' +
+                    '</body></html>';
 
-                    // 计算图片尺寸以适应A4纸张
-                    var imgWidth = 210; // A4宽度 mm
-                    var imgHeight = (canvas.height * imgWidth) / canvas.width;
+                // 创建Blob并下载
+                var blob = new Blob([wordHTML], { type: 'application/msword' });
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url;
+                a.download = '选题验证报告_' + formData.name + '_' + formData.employeeId + '.doc';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
 
-                    // 如果内容超过一页，分页处理
-                    var pageHeight = 297; // A4高度 mm
-                    var margin = 10;
-
-                    if (imgHeight <= pageHeight - margin * 2) {
-                        // 内容可以放在一页
-                        doc.addImage(canvas.toDataURL('image/png'), 'PNG', 0, margin, imgWidth, imgHeight);
-                    } else {
-                        // 内容超过一页，分页
-                        var heightLeft = imgHeight;
-                        var position = margin;
-                        doc.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, imgWidth, imgHeight);
-                        heightLeft -= pageHeight;
-
-                        while (heightLeft > 0) {
-                            position = heightLeft - imgHeight + margin;
-                            doc.addPage();
-                            doc.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, imgWidth, imgHeight);
-                            heightLeft -= pageHeight;
-                        }
-                    }
-
-                    // 保存，文件名包含姓名和工号
-                    var filename = '选题验证报告_' + formData.name + '_' + formData.employeeId + '.pdf';
-                    doc.save(filename);
-
-                    // 恢复模板显示
-                    document.getElementById('pdf_value_block').style.display = '';
-                    document.getElementById('pdf_lesson_block').style.display = '';
-                    document.getElementById('pdf_effect_block').style.display = '';
-                    document.getElementById('pdf_audience_block').style.display = '';
-
-                }).catch(function(err) {
-                    console.error('PDF生成失败:', err);
-                    alert('PDF生成失败，请稍后重试');
-                });
+                // 恢复按钮
+                downloadBtn.innerHTML = originalText;
+                downloadBtn.disabled = false;
 
             } catch (e) {
-                console.error('PDF生成失败:', e);
-                alert('PDF生成失败，请稍后重试');
+                console.error('Word生成失败:', e);
+                alert('Word生成失败，请稍后重试');
+                document.getElementById('downloadBtn').innerHTML = '<span>📕</span> 下载验证报告（Word）';
+                document.getElementById('downloadBtn').disabled = false;
             }
         }
 
@@ -1284,7 +1250,12 @@
         };
 
         // ========== 初始化 ==========
-        console.log('💡 管理员提示：控制台输入 exportAllRecords() 可导出所有验证数据');
+        console.log('═══════════════════════════════════════════════════════');
+        console.log('📊 管理员数据导出工具');
+        console.log('═══════════════════════════════════════════════════════');
+        console.log('在控制台输入以下命令：');
+        console.log('  exportAllRecords()  → 导出所有验证数据为CSV');
+        console.log('═══════════════════════════════════════════════════════');
     </script>
 </body>
 </html>
