@@ -114,7 +114,7 @@
             background: linear-gradient(135deg, #52c41a, #389e0d); border-radius: 50%;
             display: flex; align-items: center; justify-content: center; font-size: 40px;
         }
-        .download-section { text-align: center; margin-top: 20px; }
+        .download-section { margin-top: 20px; display: flex; flex-direction: column; gap: 12px; }
         /* 数据留痕提示 */
         .data-notice {
             background: #e6f7ff; border: 1px solid #91d5ff; border-radius: 8px;
@@ -481,9 +481,16 @@
                     ✅ 验证数据已保存，你可以下载验证报告
                 </div>
 
-                <div class="download-section">
+                <div class="download-section" style="display:flex;flex-direction:column;gap:12px;">
+                    <!-- PC端：直接下载Word -->
                     <button class="btn btn-success" id="downloadBtn" onclick="generateWord()">
                         <span>📕</span> 下载验证报告（Word）
+                        <div style="font-size:11px;font-weight:normal;opacity:0.8;">PC端推荐</div>
+                    </button>
+                    <!-- 移动端：生成腾讯文档 -->
+                    <button class="btn" style="background:#07c160;border-color:#07c160;" id="onlineDocBtn" onclick="generateOnlineDoc()">
+                        <span>📊</span> 生成在线文档
+                        <div style="font-size:11px;font-weight:normal;opacity:0.85;">移动端推荐 · 扫码即可查看</div>
                     </button>
                 </div>
 
@@ -1159,7 +1166,9 @@
             updateProgress(25);
         }
 
-        // ========== 数据留痕 ==========
+        // ========== 腾讯文档汇总表配置 ==========
+        var TENCENT_DOC_SHEET_ID = 'LucoMsfAfyCU';
+        var TENCENT_DOC_URL = 'https://docs.qq.com/sheet/DTHVjb01zZkFmeUNV';
         function getRecords() {
             var records = localStorage.getItem('expExtractionRecords');
             return records ? JSON.parse(records) : [];
@@ -1280,6 +1289,140 @@
                     btn.disabled = false;
                 }
             }
+        }
+
+        // ========== 生成在线文档（移动端推荐） ==========
+        function generateOnlineDoc() {
+            var btn = document.getElementById('onlineDocBtn');
+            if (btn) {
+                btn.innerHTML = '<span>⏳</span> 生成中...';
+                btn.disabled = true;
+            }
+
+            // 构建本次提交的数据摘要
+            var dataLines = [];
+            dataLines.push('=== 经验萃取选题验证数据 ===');
+            dataLines.push('姓名：' + (formData.name || ''));
+            dataLines.push('工号：' + (formData.employeeId || ''));
+            dataLines.push('部门：' + (formData.department || ''));
+            dataLines.push('选题：' + (formData.topic || ''));
+            dataLines.push('选题来源：' + (formData.source || ''));
+            dataLines.push('高价值：' + (formData.dim1Score || 0) + '分');
+            dataLines.push('紧迫度：' + (formData.dim2Score || 0) + '分');
+            dataLines.push('常发生：' + (formData.dim3Score || 0) + '分');
+            dataLines.push('萃取价值：' + (formData.extractionValue || ''));
+            dataLines.push('是否有成功案例：' + (formData.hasCase === 'yes' ? '是' : '否'));
+            dataLines.push('弯路教训：' + (formData.lessonLearned || ''));
+            dataLines.push('期望效果：' + (formData.expectedEffect || ''));
+            dataLines.push('目标学员：' + (formData.targetAudience || ''));
+            dataLines.push('选题是否一目了然：' + (formData.isClear === 'yes' ? '是' : (formData.isClear === 'somewhat' ? '大概能理解' : '不够清晰')));
+            dataLines.push('是否修改选题：' + (formData.needRevise === 'yes' ? '是' : '否'));
+            if (formData.revisedTopic) dataLines.push('修改后选题：' + formData.revisedTopic);
+            dataLines.push('提交时间：' + (formData.submitTime || new Date().toLocaleString('zh-CN')));
+            dataLines.push('状态：已完成');
+
+            var summaryText = dataLines.join('\n');
+
+            // 复制到剪贴板
+            var copyOk = false;
+            try {
+                navigator.clipboard.writeText(summaryText).then(function() {
+                    copyOk = true;
+                }).catch(function() {
+                    // 降级：创建临时textarea
+                    var ta = document.createElement('textarea');
+                    ta.value = summaryText;
+                    ta.style.position = 'fixed';
+                    ta.style.opacity = '0';
+                    document.body.appendChild(ta);
+                    ta.select();
+                    copyOk = document.execCommand('copy');
+                    document.body.removeChild(ta);
+                });
+            } catch(e) {
+                copyOk = false;
+            }
+
+            // 显示结果弹窗
+            showOnlineDocModal(copyOk, summaryText);
+        }
+
+        function showOnlineDocModal(copyOk, summaryText) {
+            // 移除旧的弹窗
+            var old = document.getElementById('onlineDocModal');
+            if (old) old.remove();
+
+            var modal = document.createElement('div');
+            modal.id = 'onlineDocModal';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+            modal.onclick = function(e) { if (e.target === modal) modal.remove(); };
+
+            var card = document.createElement('div');
+            card.style.cssText = 'background:white;border-radius:16px;padding:24px;max-width:420px;width:100%;max-height:85vh;overflow-y:auto;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;';
+            card.innerHTML = '<div style="font-size:18px;font-weight:700;color:#333;margin-bottom:12px;">📊 在线文档生成</div>' +
+
+                // 汇总表链接
+                '<div style="background:#f0f5ff;border-radius:10px;padding:14px;margin-bottom:14px;">' +
+                '<div style="font-size:12px;color:#1890ff;margin-bottom:6px;font-weight:600;">📋 数据将实时汇入此汇总表</div>' +
+                '<a href="' + TENCENT_DOC_URL + '" target="_blank" style="color:#667eea;font-size:13px;word-break:break-all;text-decoration:none;display:block;padding:6px 8px;background:white;border-radius:6px;border:1px solid #667eea33;">' + TENCENT_DOC_URL.replace('https://','') + '</a>' +
+                '</div>' +
+
+                // 数据预览
+                '<div style="font-size:13px;color:#666;margin-bottom:8px;font-weight:500;">您的验证数据：</div>' +
+                '<div id="summaryPreview" style="background:#f8f8f8;border-radius:8px;padding:12px;font-size:12px;color:#555;' +
+                'max-height:180px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;margin-bottom:14px;' +
+                'border:1px solid #eee;line-height:1.8;"></div>' +
+
+                // 复制按钮
+                '<button onclick="copySummaryText()" style="width:100%;padding:13px;background:#07c160;color:white;border:none;' +
+                'border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;margin-bottom:10px;">📋 复制全部数据</button>' +
+                '<div id="copyStatus" style="text-align:center;font-size:12px;color:#999;margin-bottom:14px;"></div>' +
+
+                // 操作说明
+                '<div style="background:#fff7e6;border-radius:8px;padding:12px;font-size:12px;color:#856404;line-height:1.8;">' +
+                '<strong>操作步骤：</strong><br>' +
+                '① 点击上方「复制全部数据」<br>' +
+                '② 打开上方汇总表链接<br>' +
+                '③ 点击表格最后一行空白处，粘贴数据<br>' +
+                '④ 数据即可实时同步到汇总表！' +
+                '</div>' +
+
+                // 关闭按钮
+                '<button onclick="document.getElementById(\'onlineDocModal\').remove()" style="width:100%;padding:10px;' +
+                'background:#f5f5f5;color:#666;border:none;border-radius:8px;font-size:14px;cursor:pointer;margin-top:12px;">知道了</button>';
+
+            modal.appendChild(card);
+            document.body.appendChild(modal);
+
+            document.getElementById('summaryPreview').textContent = summaryText;
+            window._summaryText = summaryText;
+
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(summaryText).then(function() {
+                    var el = document.getElementById('copyStatus');
+                    if (el) { el.textContent = '✅ 已自动复制到剪贴板，粘贴到汇总表即可'; el.style.color = '#07c160'; }
+                }).catch(function() {
+                    var el = document.getElementById('copyStatus');
+                    if (el) el.textContent = '请点击「复制全部数据」按钮';
+                });
+            }
+        }
+
+        function copySummaryText() {
+            var text = window._summaryText || '';
+            if (!text) return;
+            navigator.clipboard.writeText(text).then(function() {
+                var el = document.getElementById('copyStatus');
+                if (el) { el.textContent = '✅ 复制成功！请发送给HR/管理员'; el.style.color = '#07c160'; }
+            }).catch(function() {
+                var ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed'; ta.style.opacity = '0';
+                document.body.appendChild(ta); ta.select();
+                document.execCommand('copy'); document.body.removeChild(ta);
+                var el = document.getElementById('copyStatus');
+                if (el) { el.textContent = '✅ 复制成功！请发送给HR/管理员'; el.style.color = '#07c160'; }
+            });
         }
 
         // ========== 初始化 ==========
