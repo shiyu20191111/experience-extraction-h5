@@ -661,41 +661,65 @@
             // ===== 分析初始选题 =====
             var topicAnalysis = analyzeTopic(topic);
 
+            // ===== 判断选题质量（核心：区分优秀/一般/需改进）=====
+            var dimScores = [];
+            if (formData.dim1) dimScores.push(parseInt(formData.dim1));
+            if (formData.dim2) dimScores.push(parseInt(formData.dim2));
+            if (formData.dim3) dimScores.push(parseInt(formData.dim3));
+            var avgScore = dimScores.length > 0 ? dimScores.reduce((a,b)=>a+b,0) / dimScores.length : 0;
+            var allLowScore = dimScores.length > 0 && dimScores.every(function(s){return s <= 3;});
+            var topicTooShort = topic.length < 5;  // 选题太短
+            var topicNotClear = formData.isClear === 'no' || formData.isClear === 'somewhat';
+
             // ===== 生成具体的改写建议（核心功能）=====
             var rewriteSuggestion = generateRewriteSuggestion(allInfo, topicAnalysis);
             if (rewriteSuggestion) {
                 suggestions.push(rewriteSuggestion);
             }
 
-            // ===== 基于选题清晰度的建议 =====
-            if (formData.isClear === 'no' || formData.isClear === 'somewhat') {
-                suggestions.push('💡 建议让你的选题更「可视化」——让别人一听就知道：这个经验用在什么场景、要做什么动作、达成什么结果');
-            }
-
-            // ===== 基于目标学员的建议 =====
-            if (formData.targetAudience && formData.targetAudience.length > 5) {
-                suggestions.push('📌 建议在选题中体现目标学员特征，如：' + formData.targetAudience.split('，')[0] + '如何...');
-            }
-
-            // ===== 基于萃取价值的建议 =====
-            if (formData.extractionValue && formData.extractionValue.length > 10) {
-                var valueKeyword = extractKeyword(formData.extractionValue, ['提升', '减少', '提高', '优化', '解决', '改善', '增加']);
-                if (valueKeyword) {
-                    suggestions.push('🎯 根据你描述的价值，建议在选题中加入「' + valueKeyword + '」等结果导向的词汇');
+            // ===== 选题质量差：给出明确的改进建议 =====
+            if (allLowScore || topicTooShort || (topicNotClear && topic.length < 10)) {
+                // 选题质量差，给出严重警告和建议
+                if (topicTooShort || topic.length < 3) {
+                    suggestions.push('⚠️ <strong>选题过于简单</strong>，无法体现经验价值。请补充更完整的选题描述');
+                } else if (allLowScore) {
+                    suggestions.push('⚠️ <strong>自评分数偏低</strong>，说明这个经验还需要进一步打磨');
                 }
-            }
+                suggestions.push('💡 请重新思考：您的经验是<strong>解决什么问题</strong>？用了<strong>什么方法</strong>？达成了<strong>什么结果</strong>？');
+                // 不添加默认的"方向不错"建议
+            } else {
+                // 选题质量正常或较好，给出优化建议
 
-            // ===== 基于期望效果的建议 =====
-            if (formData.expectedEffect && formData.expectedEffect.length > 5) {
-                var effectMatch = formData.expectedEffect.match(/(\d+[%％]?|明显|显著)/);
-                if (effectMatch) {
-                    suggestions.push('📊 你提到了具体的期望效果，这很好！建议在选题中体现这个目标');
+                // ===== 基于选题清晰度的建议 =====
+                if (formData.isClear === 'no' || formData.isClear === 'somewhat') {
+                    suggestions.push('💡 建议让你的选题更「可视化」——让别人一听就知道：这个经验用在什么场景、要做什么动作、达成什么结果');
                 }
-            }
 
-            // ===== 默认建议 =====
-            if (suggestions.length <= 1) {
-                suggestions.push('✨ 你的选题方向不错！建议进一步细化，使其更具实操性');
+                // ===== 基于目标学员的建议 =====
+                if (formData.targetAudience && formData.targetAudience.length > 5) {
+                    suggestions.push('📌 建议在选题中体现目标学员特征，如：' + formData.targetAudience.split('，')[0] + '如何...');
+                }
+
+                // ===== 基于萃取价值的建议 =====
+                if (formData.extractionValue && formData.extractionValue.length > 10) {
+                    var valueKeyword = extractKeyword(formData.extractionValue, ['提升', '减少', '提高', '优化', '解决', '改善', '增加']);
+                    if (valueKeyword) {
+                        suggestions.push('🎯 根据你描述的价值，建议在选题中加入「' + valueKeyword + '」等结果导向的词汇');
+                    }
+                }
+
+                // ===== 基于期望效果的建议 =====
+                if (formData.expectedEffect && formData.expectedEffect.length > 5) {
+                    var effectMatch = formData.expectedEffect.match(/(\d+[%％]?|明显|显著)/);
+                    if (effectMatch) {
+                        suggestions.push('📊 你提到了具体的期望效果，这很好！建议在选题中体现这个目标');
+                    }
+                }
+
+                // ===== 默认建议（仅在质量正常时使用）=====
+                if (suggestions.length <= 1) {
+                    suggestions.push('✨ 你的选题方向不错！建议进一步细化，使其更具实操性');
+                }
             }
 
             // ===== 最终格式建议 =====
