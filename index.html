@@ -759,86 +759,125 @@
         function generateSuggestions() {
             var suggestions = [];
             var topic = formData.topic;
-            var allInfo = {
-                topic: topic,
-                value: formData.extractionValue,
-                effect: formData.expectedEffect,
-                audience: formData.targetAudience,
-                lesson: formData.lessonLearned,
-                isClear: formData.isClear
-            };
-
-            // ===== 分析初始选题 =====
-            var topicAnalysis = analyzeTopic(topic);
-
-            // ===== 判断选题质量（核心：区分优秀/一般/需改进）=====
-            var dimScores = [];
-            if (formData.dim1) dimScores.push(parseInt(formData.dim1));
-            if (formData.dim2) dimScores.push(parseInt(formData.dim2));
-            if (formData.dim3) dimScores.push(parseInt(formData.dim3));
-            var avgScore = dimScores.length > 0 ? dimScores.reduce((a,b)=>a+b,0) / dimScores.length : 0;
-            var allLowScore = dimScores.length > 0 && dimScores.every(function(s){return s <= 3;});
-            var topicTooShort = topic.length < 5;  // 选题太短
-            var topicNotClear = formData.isClear === 'no' || formData.isClear === 'somewhat';
-
-            // ===== 生成具体的改写建议（核心功能）=====
-            var rewriteSuggestion = generateRewriteSuggestion(allInfo, topicAnalysis);
-            if (rewriteSuggestion) {
-                suggestions.push(rewriteSuggestion);
+            var topicLen = topic ? topic.length : 0;
+            
+            // ===== 分析用户填写的各项内容 =====
+            var hasValue = formData.extractionValue && formData.extractionValue.length > 5;
+            var hasLesson = formData.lessonLearned && formData.lessonLearned.length > 5;
+            var hasEffect = formData.expectedEffect && formData.expectedEffect.length > 5;
+            var hasAudience = formData.targetAudience && formData.targetAudience.length > 3;
+            var isClear = formData.isClear;
+            var hasCase = formData.hasCase;
+            
+            // 三维度分数
+            var dim1 = parseInt(formData.dim1) || 0;
+            var dim2 = parseInt(formData.dim2) || 0;
+            var dim3 = parseInt(formData.dim3) || 0;
+            
+            // ===== 选题结构分析 =====
+            var topicHasMethod = /通过|使用|运用|采用|借助/.test(topic);  // 是否有方法
+            var topicHasResult = /提升|减少|提高|优化|解决|改善|达成|实现/.test(topic);  // 是否有结果
+            var topicHasScene = /在|面对|针对|当/.test(topic);  // 是否有场景
+            
+            // ===== 基于选题内容的具体建议 =====
+            
+            // 1. 选题长度分析
+            if (topicLen < 10) {
+                suggestions.push('📝 <strong>选题偏短</strong>（' + topicLen + '字）。建议用一句话完整描述：这个经验「解决什么问题」→「用什么方法」→「达成什么结果」。');
+            } else if (topicLen > 50) {
+                suggestions.push('📝 <strong>选题较长</strong>（' + topicLen + '字）。建议精简提炼，保留最核心的要素。');
             }
-
-            // ===== 选题质量差：给出明确的改进建议 =====
-            if (allLowScore || topicTooShort || (topicNotClear && topic.length < 10)) {
-                // 选题质量差，给出严重警告和建议
-                if (topicTooShort || topic.length < 3) {
-                    suggestions.push('⚠️ <strong>选题过于简单</strong>，无法体现经验价值。请补充更完整的选题描述');
-                } else if (allLowScore) {
-                    suggestions.push('⚠️ <strong>自评分数偏低</strong>，说明这个经验还需要进一步打磨');
+            
+            // 2. 基于萃取价值的建议
+            if (hasValue) {
+                var valueText = formData.extractionValue;
+                // 提取价值关键词
+                var valueMatch = valueText.match(/提升|减少|提高|优化|解决|改善|增加|降低|缩短|加快|达成|实现|避免|防止/g);
+                if (valueMatch && valueMatch.length > 0) {
+                    suggestions.push('💡 您提到的价值是「' + valueMatch[0] + '」——建议在选题中<strong>直接体现这个结果</strong>，让人一眼看到效果。');
                 }
-                suggestions.push('💡 请重新思考：您的经验是<strong>解决什么问题</strong>？用了<strong>什么方法</strong>？达成了<strong>什么结果</strong>？');
-                // 不添加默认的"方向不错"建议
+            } else if (!hasValue) {
+                suggestions.push('💡 建议补充「萃取价值」：这个经验对组织/团队有什么具体贡献？（如：提升效率、降低成本、减少错误等）');
+            }
+            
+            // 3. 基于弯路教训的建议
+            if (hasLesson) {
+                suggestions.push('🔧 您分享了弯路教训「' + formData.lessonLearned.substring(0, 20) + '...」——这个很好，建议在选题中<strong>体现您的独特方法或关键动作</strong>。');
             } else {
-                // 选题质量正常或较好，给出优化建议
-
-                // ===== 基于选题清晰度的建议 =====
-                if (formData.isClear === 'no' || formData.isClear === 'somewhat') {
-                    suggestions.push('💡 建议让你的选题更「可视化」——让别人一听就知道：这个经验用在什么场景、要做什么动作、达成什么结果');
-                }
-
-                // ===== 基于目标学员的建议 =====
-                if (formData.targetAudience && formData.targetAudience.length > 5) {
-                    suggestions.push('📌 建议在选题中体现目标学员特征，如：' + formData.targetAudience.split('，')[0] + '如何...');
-                }
-
-                // ===== 基于萃取价值的建议 =====
-                if (formData.extractionValue && formData.extractionValue.length > 10) {
-                    var valueKeyword = extractKeyword(formData.extractionValue, ['提升', '减少', '提高', '优化', '解决', '改善', '增加']);
-                    if (valueKeyword) {
-                        suggestions.push('🎯 根据你描述的价值，建议在选题中加入「' + valueKeyword + '」等结果导向的词汇');
-                    }
-                }
-
-                // ===== 基于期望效果的建议 =====
-                if (formData.expectedEffect && formData.expectedEffect.length > 5) {
-                    var effectMatch = formData.expectedEffect.match(/(\d+[%％]?|明显|显著)/);
-                    if (effectMatch) {
-                        suggestions.push('📊 你提到了具体的期望效果，这很好！建议在选题中体现这个目标');
-                    }
-                }
-
-                // ===== 默认建议（仅在质量正常时使用）=====
-                if (suggestions.length <= 1) {
-                    suggestions.push('✨ 你的选题方向不错！建议进一步细化，使其更具实操性');
+                suggestions.push('🔧 建议补充「弯路教训」：您是怎么发现这个方法的？踩过什么坑？这能体现经验的独特性。');
+            }
+            
+            // 4. 基于期望效果的建议
+            if (hasEffect) {
+                var effectText = formData.expectedEffect;
+                var effectNum = effectText.match(/\d+/g);
+                if (effectNum && effectNum.length > 0) {
+                    suggestions.push('📊 您设定了「' + effectNum[0] + '」的量化目标——建议在选题中<strong>加入这个数字</strong>，增强说服力。');
+                } else if (effectText.includes('提升') || effectText.includes('提高')) {
+                    suggestions.push('📊 您希望「' + effectText.substring(0, 15) + '...」——建议在选题中<strong>说明提升的程度</strong>（如：从X提升到Y）。');
                 }
             }
+            
+            // 5. 基于目标学员的建议
+            if (hasAudience) {
+                suggestions.push('👥 您的目标是「' + formData.targetAudience + '」——建议在选题开头<strong>点明适用对象</strong>，如：「' + formData.targetAudience.split(/[，,]/)[0] + '如何...」。');
+            }
+            
+            // 6. 基于选题清晰度的建议
+            if (isClear === 'no') {
+                suggestions.push('⚠️ 您认为当前选题「不太一目了然」——建议重新梳理，用「动词开头」直接点明动作，如：「如何通过XX方法解决XX问题」。');
+            } else if (isClear === 'somewhat') {
+                suggestions.push('💡 您认为选题「还需要调整」——建议去掉笼统词汇，用具体的名词和动词替代。');
+            }
+            
+            // 7. 基于三维度分数的建议
+            if (dim1 < 60) {
+                suggestions.push('📈 「高价值」维度分数偏低（' + dim1 + '分）——建议在萃取价值中<strong>强调对组织/业务的核心贡献</strong>。');
+            }
+            if (dim2 < 60) {
+                suggestions.push('⏰ 「紧迫度」维度分数偏低（' + dim2 + '分）——建议说明<strong>为什么现在必须解决这个问题</strong>。');
+            }
+            if (dim3 < 60) {
+                suggestions.push('🔄 「常发生」维度分数偏低（' + dim3 + '分）——建议强调<strong>这是多常见的问题/场景</strong>。');
+            }
+            
+            // 8. 基于成功案例的建议
+            if (hasCase === 'yes') {
+                suggestions.push('✅ 您有成功案例——建议在选题中<strong>暗示可复制性</strong>，让学员相信「我也能学会」。');
+            }
+            
+            // 9. 选题结构完整性检查
+            if (!topicHasMethod && !topicHasResult) {
+                suggestions.push('📋 <strong>选题缺少关键要素</strong>——一个好的经验萃取选题应包含：①方法/动作 ②场景/对象 ③结果/效果。');
+            } else if (!topicHasMethod) {
+                suggestions.push('📋 选题中有结果但缺少方法——建议加上您用的「具体方法或工具」。');
+            } else if (!topicHasResult) {
+                suggestions.push('📋 选题中有方法但缺少结果——建议加上「达成了什么效果或改变」。');
+            }
+            
+            // ===== 如果建议太多，精简到最关键的3-5条 =====
+            if (suggestions.length > 5) {
+                // 保留最重要的：优先保留关于选题结构、萃取价值、弯路教训的建议
+                var priorityKeywords = ['选题缺少', '高价值', '紧迫度', '常发生', '弯路教训'];
+                var filtered = suggestions.filter(function(s) {
+                    return priorityKeywords.some(function(k) { return s.indexOf(k) > -1; });
+                });
+                if (filtered.length < 3) {
+                    // 如果筛选后太少，保留前4条
+                    suggestions = suggestions.slice(0, 4);
+                } else {
+                    suggestions = filtered.slice(0, 4);
+                }
+            }
+            
+            // ===== 推荐格式 =====
+            suggestions.push('📋 <strong><span style="background:#e8f4fd;padding:4px 8px;border-radius:4px;">推荐格式：「' + 
+                (hasAudience ? formData.targetAudience.split(/[，,]/)[0] : '[目标对象]') + '如何通过' +
+                '[具体方法]' +
+                '解决[什么问题]' +
+                '达成[什么结果]' + '」</span></strong>');
 
-            // ===== 最终格式建议（高亮显示）=====
-            suggestions.push('📋 <strong><span style="background:#fff3cd;padding:2px 6px;border-radius:4px;">推荐格式：「如何通过[具体方法/动作] [在什么场景下] [达成什么结果]」</span></strong>');
-
-            // ===== 更新优秀选题要素框（核心优化）=====
-            updateFormatBox(allInfo, topicAnalysis);
-
-            // 渲染建议列表（精简）
+            // 渲染建议列表
             var html = '';
             suggestions.forEach(function(sug, i) {
                 html += '<div class="suggestion-item">' +
@@ -847,18 +886,21 @@
                     '</div>';
             });
             document.getElementById('suggestionList').innerHTML = html;
+            
+            // 更新格式框
+            updateFormatBox();
         }
-
+        
         // ========== 更新优秀选题要素框 ==========
-        function updateFormatBox(info, analysis) {
-            var topic = info.topic;
+        function updateFormatBox() {
+            var topic = formData.topic || '';
             var contentHTML = '';
             var exampleHTML = '';
 
             // 1. 解析用户录入的内容
-            var method = extractMethod(info.lesson, info.value);
-            var scene = extractScene(info.audience);
-            var result = extractResult(info.effect, info.value);
+            var method = extractMethod(formData.lessonLearned, formData.extractionValue);
+            var scene = extractScene(formData.targetAudience);
+            var result = extractResult(formData.expectedEffect, formData.extractionValue);
 
             // 2. 生成优化方向内容
             contentHTML += '<div style="margin-bottom:12px;"><strong>你的选题分析：</strong></div>';
@@ -1084,9 +1126,9 @@
             // 保存完整记录
             saveCompleteRecord();
 
-            // 切换到步骤4
-            document.getElementById('stepSection3').classList.remove('active');
-            document.getElementById('stepSection4').classList.add('active');
+            // 直接切换到步骤4
+            document.getElementById('stepSection3').style.display = 'none';
+            document.getElementById('stepSection4').style.display = 'block';
             updateStepIndicator(4);
             updateProgress(100);
         }
