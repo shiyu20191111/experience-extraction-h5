@@ -487,11 +487,24 @@
                         <span>📕</span> 下载验证报告（Word）
                         <div style="font-size:11px;font-weight:normal;opacity:0.8;">PC端推荐</div>
                     </button>
-                    <!-- 移动端：生成腾讯文档 -->
-                    <button class="btn" style="background:#07c160;border-color:#07c160;" id="onlineDocBtn" onclick="generateOnlineDoc()">
-                        <span>📊</span> 生成在线文档
-                        <div style="font-size:11px;font-weight:normal;opacity:0.85;">移动端推荐 · 扫码即可查看</div>
-                    </button>
+
+                    <!-- 直接展示复制区域，不需要再点按钮 -->
+                    <div id="copySection" style="background:#f0f5ff;border-radius:12px;padding:16px;border:1px solid #d6e4ff;">
+                        <div style="font-size:15px;font-weight:600;color:#333;margin-bottom:10px;">📊 复制验证数据</div>
+
+                        <!-- 数据预览 -->
+                        <div style="font-size:12px;color:#666;margin-bottom:6px;">以下数据已自动复制，也可手动复制：</div>
+                        <div id="dataPreview" style="background:white;border-radius:8px;padding:10px;font-size:12px;color:#333;max-height:150px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;line-height:1.6;margin-bottom:10px;border:1px solid #eee;"></div>
+
+                        <!-- 复制按钮 -->
+                        <button onclick="copySummaryData()" id="copyDataBtn" style="width:100%;padding:11px;background:#07c160;color:white;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:8px;">📋 一键复制全部数据</button>
+                        <div id="copyDataStatus" style="text-align:center;font-size:12px;color:#999;margin-bottom:8px;"></div>
+
+                        <!-- 操作说明 -->
+                        <div style="background:#fff7e6;border-radius:6px;padding:8px;font-size:11px;color:#856404;line-height:1.6;">
+                            <strong>操作步骤：</strong>① 点击上方「一键复制全部数据」② 将数据粘贴到指定位置
+                        </div>
+                    </div>
                 </div>
 
                 <button class="btn btn-secondary" onclick="restart()" style="margin-top:16px;">
@@ -1105,6 +1118,8 @@
             document.getElementById('stepSection4').style.display = 'block';
             updateStepIndicator(4);
             updateProgress(100);
+            // 初始化复制区域
+            initStep4();
         }
 
         // ========== 步骤指示器更新 ==========
@@ -1291,15 +1306,9 @@
             }
         }
 
-        // ========== 生成在线文档（移动端推荐） ==========
-        function generateOnlineDoc() {
-            var btn = document.getElementById('onlineDocBtn');
-            if (btn) {
-                btn.innerHTML = '<span>⏳</span> 生成中...';
-                btn.disabled = true;
-            }
-
-            // 构建本次提交的数据摘要
+        // ========== 步骤4初始化：生成预览数据并尝试自动复制 ==========
+        function initStep4() {
+            // 构建数据文本
             var dataLines = [];
             dataLines.push('=== 经验萃取选题验证数据 ===');
             dataLines.push('姓名：' + (formData.name || ''));
@@ -1322,107 +1331,96 @@
             dataLines.push('状态：已完成');
 
             var summaryText = dataLines.join('\n');
-
-            // 复制到剪贴板
-            var copyOk = false;
-            try {
-                navigator.clipboard.writeText(summaryText).then(function() {
-                    copyOk = true;
-                }).catch(function() {
-                    // 降级：创建临时textarea
-                    var ta = document.createElement('textarea');
-                    ta.value = summaryText;
-                    ta.style.position = 'fixed';
-                    ta.style.opacity = '0';
-                    document.body.appendChild(ta);
-                    ta.select();
-                    copyOk = document.execCommand('copy');
-                    document.body.removeChild(ta);
-                });
-            } catch(e) {
-                copyOk = false;
-            }
-
-            // 显示结果弹窗
-            showOnlineDocModal(copyOk, summaryText);
-        }
-
-        function showOnlineDocModal(copyOk, summaryText) {
-            // 移除旧的弹窗
-            var old = document.getElementById('onlineDocModal');
-            if (old) old.remove();
-
-            var modal = document.createElement('div');
-            modal.id = 'onlineDocModal';
-            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
-            modal.onclick = function(e) { if (e.target === modal) modal.remove(); };
-
-            var card = document.createElement('div');
-            card.style.cssText = 'background:white;border-radius:16px;padding:24px;max-width:420px;width:100%;max-height:85vh;overflow-y:auto;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;';
-            card.innerHTML = '<div style="font-size:18px;font-weight:700;color:#333;margin-bottom:12px;">📊 在线文档生成</div>' +
-
-                // 汇总表链接
-                '<div style="background:#f0f5ff;border-radius:10px;padding:14px;margin-bottom:14px;">' +
-                '<div style="font-size:12px;color:#1890ff;margin-bottom:6px;font-weight:600;">📋 数据将实时汇入此汇总表</div>' +
-                '<a href="' + TENCENT_DOC_URL + '" target="_blank" style="color:#667eea;font-size:13px;word-break:break-all;text-decoration:none;display:block;padding:6px 8px;background:white;border-radius:6px;border:1px solid #667eea33;">' + TENCENT_DOC_URL.replace('https://','') + '</a>' +
-                '</div>' +
-
-                // 数据预览
-                '<div style="font-size:13px;color:#666;margin-bottom:8px;font-weight:500;">您的验证数据：</div>' +
-                '<div id="summaryPreview" style="background:#f8f8f8;border-radius:8px;padding:12px;font-size:12px;color:#555;' +
-                'max-height:180px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;margin-bottom:14px;' +
-                'border:1px solid #eee;line-height:1.8;"></div>' +
-
-                // 复制按钮
-                '<button onclick="copySummaryText()" style="width:100%;padding:13px;background:#07c160;color:white;border:none;' +
-                'border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;margin-bottom:10px;">📋 复制全部数据</button>' +
-                '<div id="copyStatus" style="text-align:center;font-size:12px;color:#999;margin-bottom:14px;"></div>' +
-
-                // 操作说明
-                '<div style="background:#fff7e6;border-radius:8px;padding:12px;font-size:12px;color:#856404;line-height:1.8;">' +
-                '<strong>操作步骤：</strong><br>' +
-                '① 点击上方「复制全部数据」<br>' +
-                '② 打开上方汇总表链接<br>' +
-                '③ 点击表格最后一行空白处，粘贴数据<br>' +
-                '④ 数据即可实时同步到汇总表！' +
-                '</div>' +
-
-                // 关闭按钮
-                '<button onclick="document.getElementById(\'onlineDocModal\').remove()" style="width:100%;padding:10px;' +
-                'background:#f5f5f5;color:#666;border:none;border-radius:8px;font-size:14px;cursor:pointer;margin-top:12px;">知道了</button>';
-
-            modal.appendChild(card);
-            document.body.appendChild(modal);
-
-            document.getElementById('summaryPreview').textContent = summaryText;
             window._summaryText = summaryText;
 
-            if (navigator.clipboard) {
-                navigator.clipboard.writeText(summaryText).then(function() {
-                    var el = document.getElementById('copyStatus');
-                    if (el) { el.textContent = '✅ 已自动复制到剪贴板，粘贴到汇总表即可'; el.style.color = '#07c160'; }
-                }).catch(function() {
-                    var el = document.getElementById('copyStatus');
-                    if (el) el.textContent = '请点击「复制全部数据」按钮';
-                });
+            // 填入预览区
+            var preview = document.getElementById('dataPreview');
+            if (preview) preview.textContent = summaryText;
+
+            // 尝试自动复制
+            var statusEl = document.getElementById('copyDataStatus');
+            if (statusEl) statusEl.textContent = '正在自动复制...';
+
+            try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(summaryText).then(function() {
+                        var el = document.getElementById('copyDataStatus');
+                        if (el) { el.textContent = '✅ 已自动复制到剪贴板，可直接粘贴到汇总表'; el.style.color = '#07c160'; }
+                    }).catch(function() {
+                        var el = document.getElementById('copyDataStatus');
+                        if (el) { el.textContent = '请点击上方「一键复制全部数据」按钮'; el.style.color = '#999'; }
+                    });
+                } else {
+                    // 降级方案
+                    fallbackCopy(summaryText);
+                }
+            } catch(e) {
+                fallbackCopy(summaryText);
             }
         }
 
-        function copySummaryText() {
+        function fallbackCopy(text) {
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            ta.style.left = '-9999px';
+            document.body.appendChild(ta);
+            ta.select();
+            try {
+                var ok = document.execCommand('copy');
+                var el = document.getElementById('copyDataStatus');
+                if (el) {
+                    el.textContent = ok ? '✅ 已自动复制到剪贴板' : '请点击上方「一键复制全部数据」按钮';
+                    el.style.color = ok ? '#07c160' : '#999';
+                }
+            } catch(e) {
+                var el = document.getElementById('copyDataStatus');
+                if (el) { el.textContent = '请点击上方「一键复制全部数据」按钮'; el.style.color = '#999'; }
+            }
+            document.body.removeChild(ta);
+        }
+
+        function copySummaryData() {
             var text = window._summaryText || '';
             if (!text) return;
-            navigator.clipboard.writeText(text).then(function() {
-                var el = document.getElementById('copyStatus');
-                if (el) { el.textContent = '✅ 复制成功！请发送给HR/管理员'; el.style.color = '#07c160'; }
-            }).catch(function() {
-                var ta = document.createElement('textarea');
-                ta.value = text;
-                ta.style.position = 'fixed'; ta.style.opacity = '0';
-                document.body.appendChild(ta); ta.select();
-                document.execCommand('copy'); document.body.removeChild(ta);
-                var el = document.getElementById('copyStatus');
-                if (el) { el.textContent = '✅ 复制成功！请发送给HR/管理员'; el.style.color = '#07c160'; }
-            });
+            var btn = document.getElementById('copyDataBtn');
+            if (btn) { btn.innerHTML = '⏳ 复制中...'; btn.disabled = true; }
+
+            try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).then(function() {
+                        var el = document.getElementById('copyDataStatus');
+                        if (el) { el.textContent = '✅ 复制成功！请粘贴到汇总表'; el.style.color = '#07c160'; }
+                        var b = document.getElementById('copyDataBtn');
+                        if (b) { b.innerHTML = '📋 一键复制全部数据'; b.disabled = false; }
+                    }).catch(function() {
+                        fallbackCopyAndNotify(text);
+                    });
+                } else {
+                    fallbackCopyAndNotify(text);
+                }
+            } catch(e) {
+                fallbackCopyAndNotify(text);
+            }
+        }
+
+        function fallbackCopyAndNotify(text) {
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed'; ta.style.opacity = '0'; ta.style.left = '-9999px';
+            document.body.appendChild(ta); ta.select();
+            try {
+                var ok = document.execCommand('copy');
+                var el = document.getElementById('copyDataStatus');
+                if (el) { el.textContent = ok ? '✅ 复制成功！请粘贴到汇总表' : '复制失败，请手动长按文字复制'; el.style.color = ok ? '#07c160' : '#ff4d4f'; }
+            } catch(e) {
+                var el = document.getElementById('copyDataStatus');
+                if (el) { el.textContent = '复制失败，请手动长按文字复制'; el.style.color = '#ff4d4f'; }
+            }
+            document.body.removeChild(ta);
+            var b = document.getElementById('copyDataBtn');
+            if (b) { b.innerHTML = '📋 一键复制全部数据'; b.disabled = false; }
         }
 
         // ========== 初始化 ==========
