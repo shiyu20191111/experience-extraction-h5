@@ -483,15 +483,6 @@
                     ✅ 验证数据已保存，你可以下载验证报告
                 </div>
 
-                <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:12px 16px;margin-bottom:20px;">
-                    <div style="font-size:13px;color:#856404;line-height:1.8;">
-                        💡 <strong>管理员导数据方法：</strong><br>
-                        1. 按 <kbd style="background:#f8f9fa;padding:2px 6px;border-radius:4px;border:1px solid #ddd;">F12</kbd> 或 <kbd style="background:#f8f9fa;padding:2px 6px;border-radius:4px;border:1px solid #ddd;">Cmd+Option+J</kbd> 打开浏览器控制台<br>
-                        2. 点击上方 <strong>Console</strong> 标签<br>
-                        3. 输入 <code style="background:#f8f9fa;padding:2px 4px;border-radius:4px;">exportAllRecords()</code> 回车即可导出Excel
-                    </div>
-                </div>
-
                 <div class="download-section">
                     <button class="btn btn-success" id="downloadBtn" onclick="generateWord()">
                         <span>📕</span> 下载验证报告（Word）
@@ -666,8 +657,8 @@
                 generateSuggestions();
             } catch(e) {
                 console.error('generateSuggestions error:', e);
-                // 即使出错也显示默认建议
-                document.getElementById('suggestionList').innerHTML = '<div class="suggestion-item"><span class="suggestion-text">✅ 您的选题已提交成功！</span></div>';
+                // 默认建议
+                document.getElementById('suggestionList').innerHTML = '<div class="suggestion-item"><span class="suggestion-text">✨ 优化建议生成中...</span></div>';
             }
             
             // 切换到步骤3
@@ -1216,7 +1207,7 @@
                     '<p><b>选题来源：</b>' + (formData.source || '大赛选题') + '</p>' +
                     '<p><b>提交时间：</b>' + formData.submitTime + '</p>' +
                     '<h3>二、选题内容</h3>' +
-                    '<p>' + formData.topic + '</p>' +
+                    '<p><b>' + (formData.needRevise === 'yes' && formData.revisedTopic ? '修改后选题：</b>' + formData.revisedTopic + '</p><p style="color:#666;font-size:12px;">（原选题：' + formData.topic + '）' : '选题：</b>' + formData.topic) + '</p>' +
                     '<h3>三、三维度自评</h3>' +
                     '<p><b>高价值：</b>' + formData.dim1Score + '分</p>' +
                     '<p><b>紧迫度：</b>' + formData.dim2Score + '分</p>' +
@@ -1238,7 +1229,6 @@
 
                 wordHTML += '<h3>五、选题修改</h3>' +
                     '<p><b>是否修改选题：</b>' + (formData.needRevise === 'yes' ? '是' : '否') + '</p>' +
-                    (formData.revisedTopic ? '<p><b>修改后选题：</b>' + formData.revisedTopic + '</p>' : '') +
                     '<p style="text-align:right;color:#999;margin-top:40px;">集团人力资源管理部</p>' +
                     '</body></html>';
 
