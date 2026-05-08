@@ -229,7 +229,7 @@
                 </div>
                 <div class="input-group">
                     <label>你的经验萃取选题 <span style="color:#ff4d4f">*</span></label>
-                    <textarea id="topic" placeholder="请简要描述你想要萃取的经验主题，例如：&#10;• 如何在销售过程中洞察客户的真实需求&#10;• 新员工入职第一周的标准化引导流程&#10;• 设备故障排查的快速定位方法" maxlength="500"></textarea>
+                    <textarea id="topic" placeholder="" maxlength="500"></textarea>
                     <div style="text-align:right;font-size:12px;color:#999;margin-top:4px;"><span id="charCount">0</span>/500</div>
                 </div>
                 <!-- 优秀选题结构移到此处 -->
@@ -666,8 +666,6 @@
             document.getElementById('stepSection3').style.display = 'block';
             updateStepIndicator(3);
             updateProgress(75);
-            
-            alert('验证通过！正在进入下一步...');
         }
         
         function goToStep3() {
@@ -893,56 +891,27 @@
         
         // ========== 更新优秀选题要素框 ==========
         function updateFormatBox() {
-            var topic = formData.topic || '';
-            var contentHTML = '';
-            var exampleHTML = '';
-
-            // 1. 解析用户录入的内容
+            // 解析用户录入的内容
             var method = extractMethod(formData.lessonLearned, formData.extractionValue);
             var scene = extractScene(formData.targetAudience);
             var result = extractResult(formData.expectedEffect, formData.extractionValue);
+            
+            var hasAudience = formData.targetAudience && formData.targetAudience.length > 3;
+            var targetStr = hasAudience ? formData.targetAudience.split(/[，,]/)[0] : '[目标对象]';
 
-            // 2. 生成优化方向内容
-            contentHTML += '<div style="margin-bottom:12px;"><strong>你的选题分析：</strong></div>';
-            contentHTML += '<div style="font-size:13px;line-height:2;">';
-            contentHTML += '📌 <strong>初始选题：</strong>' + topic + '<br>';
-
-            if (method && method !== '有效的沟通技巧') {
-                contentHTML += '🔧 <strong>可提炼的方法/动作：</strong>' + method + '<br>';
-            }
-            if (scene) {
-                contentHTML += '🎯 <strong>适用场景/人群：</strong>' + scene + '<br>';
-            }
-            if (result && result !== '提升工作效率') {
-                contentHTML += '📈 <strong>期望达成的结果：</strong>' + result + '<br>';
-            }
-            contentHTML += '</div>';
-
-            // 3. 生成改写示例
-            if (method && scene && result) {
-                exampleHTML = '<div style="margin-top:12px;padding:8px;background:white;border-radius:4px;">';
-                exampleHTML += '<div style="font-size:12px;color:#666;margin-bottom:6px;">✨ 建议改写为：</div>';
-                exampleHTML += '<div style="font-weight:600;color:#667eea;">「如何通过' + method + '，在' + scene + '中，' + result + '」</div>';
-                exampleHTML += '</div>';
-            } else {
-                // 如果信息不完整，给出部分改写建议
-                exampleHTML = '<div style="margin-top:12px;padding:8px;background:white;border-radius:4px;">';
-                exampleHTML += '<div style="font-size:12px;color:#666;margin-bottom:6px;">💡 建议补充以下信息以完善选题：</div>';
-                if (!method || method === '有效的沟通技巧') {
-                    exampleHTML += '<div style="font-size:12px;">• 明确具体的解决方法/动作</div>';
-                }
-                if (!scene) {
-                    exampleHTML += '<div style="font-size:12px;">• 说明适用的场景或目标人群</div>';
-                }
-                if (!result || result === '提升工作效率') {
-                    exampleHTML += '<div style="font-size:12px;">• 明确期望达成的结果</div>';
-                }
-                exampleHTML += '</div>';
+            // 生成格式建议
+            var formatHTML = '';
+            if (method && method !== '有效的沟通技巧' && scene && result) {
+                formatHTML = '<div style="margin-top:12px;padding:10px;background:white;border-radius:8px;">';
+                formatHTML += '<div style="font-size:13px;color:#d48806;margin-bottom:8px;"><strong>✨ 建议改写为：</strong></div>';
+                formatHTML += '<div style="font-size:15px;font-weight:600;color:#667eea;padding:8px;background:#f0f5ff;border-radius:6px;text-align:center;">';
+                formatHTML += '「' + targetStr + '如何通过' + method + '解决' + scene + '问题，达成' + result + '」';
+                formatHTML += '</div></div>';
             }
 
-            // 4. 更新DOM
-            document.getElementById('optimizationContent').innerHTML = contentHTML;
-            document.getElementById('formatExample').innerHTML = exampleHTML;
+            var formatBox = document.getElementById('formatBox');
+            formatBox.innerHTML = formatHTML;
+            formatBox.style.display = formatHTML ? 'block' : 'none';
         }
 
         // ========== 分析选题结构 ==========
@@ -1297,59 +1266,7 @@
             }
         }
 
-        // ========== 管理员导出功能 ==========
-        window.exportAllRecords = function() {
-            var records = getRecords();
-            if (records.length === 0) {
-                alert('暂无验证数据');
-                return;
-            }
-
-            // 生成CSV
-            var csv = '记录ID,姓名,工号,部门,选题,选题来源,高价值,紧迫度,常发生,萃取价值,是否有成功案例,弯路教训,期望效果,目标学员,选题是否一目了然,是否修改选题,修改后选题,提交时间,状态\n';
-
-            records.forEach(function(r) {
-                csv += [
-                    r.recordId || '',
-                    r.name || '',
-                    r.employeeId || '',
-                    r.department || '',
-                    (r.topic || '').replace(/,/g, '，').replace(/\n/g, ' '),
-                    r.source || '',
-                    r.dim1Score || '',
-                    r.dim2Score || '',
-                    r.dim3Score || '',
-                    (r.extractionValue || '').replace(/,/g, '，'),
-                    r.hasCase === 'yes' ? '是' : (r.hasCase === 'no' ? '否' : ''),
-                    (r.lessonLearned || '').replace(/,/g, '，'),
-                    (r.expectedEffect || '').replace(/,/g, '，'),
-                    (r.targetAudience || '').replace(/,/g, '，'),
-                    r.isClear === 'yes' ? '一看就懂' : (r.isClear === 'somewhat' ? '大概能理解' : (r.isClear === 'no' ? '不够清晰' : '')),
-                    r.needRevise === 'yes' ? '是' : '否',
-                    (r.revisedTopic || '').replace(/,/g, '，'),
-                    r.submitTime || r.interruptTime || '',
-                    r.status || ''
-                ].join(',') + '\n';
-            });
-
-            var blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
-            var url = URL.createObjectURL(blob);
-            var a = document.createElement('a');
-            a.href = url;
-            a.download = '选题验证全部数据_' + new Date().toISOString().slice(0,10) + '.csv';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        };
-
         // ========== 初始化 ==========
-        console.log('═══════════════════════════════════════════════════════');
-        console.log('📊 管理员数据导出工具');
-        console.log('═══════════════════════════════════════════════════════');
-        console.log('在控制台输入以下命令：');
-        console.log('  exportAllRecords()  → 导出所有验证数据为CSV');
-        console.log('═══════════════════════════════════════════════════════');
     </script>
 </body>
 </html>
