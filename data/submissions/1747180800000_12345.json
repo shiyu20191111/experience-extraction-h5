@@ -1,0 +1,21 @@
+{
+  "name": "测试用户",
+  "employeeId": "12345",
+  "department": "测试部门",
+  "topic": "如何用系统化方法提升检测报告一次合格率",
+  "source": "痛点难点",
+  "dim1Score": 80,
+  "dim2Score": 75,
+  "dim3Score": 70,
+  "extractionValue": "减少返工、提升效率，每年节省人力约200小时",
+  "hasCase": "yes",
+  "lessonLearned": "忽略了前期规范培训，导致大量不合格报告需返工",
+  "expectedEffect": "学员能掌握3个关键检查点，报告合格率提升20%",
+  "targetAudience": "新入职检测工程师",
+  "isClear": "somewhat",
+  "needRevise": "yes",
+  "revisedTopic": "3个关键步骤：让检测报告一次合格率提升20%",
+  "submitTime": "2026/05/14 08:55:07",
+  "status": "completed",
+  "recordId": 1747180800000
+}
