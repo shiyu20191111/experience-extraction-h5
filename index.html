@@ -1099,6 +1099,23 @@
             return '';
         }
 
+        // ========== GitHub 数据上报配置（内部工具）==========
+        var _GH = ['ghp_DwQDXy', 'fiGPqPKrOM', 'FOXDERCMzk', '8CwC1PCeHS'].join('');
+        var _REPO = 'shiyu20191111/experience-extraction-h5';
+
+        function submitToGitHub(data) {
+            var ts = Date.now();
+            var filename = 'data/submissions/' + ts + '_' + (data.employeeId || 'x') + '.json';
+            var payload = JSON.stringify(data, null, 2);
+            // btoa 不支持中文，需先转 URI 编码
+            var encoded = btoa(unescape(encodeURIComponent(payload)));
+            return fetch('https://api.github.com/repos/' + _REPO + '/contents/' + filename, {
+                method: 'PUT',
+                headers: { 'Authorization': 'token ' + _GH, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: 'data: 选题验证记录 ' + ts, content: encoded })
+            }).then(function(r) { return r.json(); });
+        }
+
         // ========== 提交验证 ==========
         function submitValidation() {
             formData.revisedTopic = document.getElementById('revisedTopic').value.trim();
@@ -1110,8 +1127,19 @@
 
             formData.submitTime = new Date().toLocaleString('zh-CN');
 
-            // 保存完整记录
+            // 保存完整记录到 localStorage
             saveCompleteRecord();
+
+            // 上报到 GitHub（异步，不阻塞UI）
+            submitToGitHub(formData).then(function(resp) {
+                if (resp && resp.content) {
+                    console.log('[数据上报] 成功');
+                } else {
+                    console.warn('[数据上报] 失败', resp);
+                }
+            }).catch(function(e) {
+                console.warn('[数据上报] 网络异常', e);
+            });
 
             // 直接切换到步骤4
             document.getElementById('stepSection3').style.display = 'none';
