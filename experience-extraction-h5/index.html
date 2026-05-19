@@ -620,7 +620,8 @@
             needRevise: '',
             revisedTopic: '',
             submitTime: '',
-            enrollStatus: '否'  // 是否提交报名：默认否
+            enrollStatus: '否',  // 是否提交报名：默认否
+            verificationStatus: ''  // 验证状态：完成验证 / 需要重写
         };
         // 乱写检测结果：全局缓存，供步骤4使用
         var _sloppyResult = [];
@@ -970,7 +971,7 @@
                 }
 
                 // 第2条：引导重写
-                suggestions.push('🔁 <strong>请返回上一步，认真思考后重新填写</strong>——本次填写的数据不会被保存，请放心修改后再提交。');
+                suggestions.push('🔁 <strong>请返回上一步，认真思考后重新填写</strong>。');
 
                 // 第3条：填写参考
                 suggestions.push('💡 <strong>填写参考</strong>——选题应来自你的真实工作经历；描述应具体，尽量包含：你做了什么、遇到了什么问题、用了什么方法、最终效果如何。');
@@ -1333,17 +1334,19 @@
 
         // ========== 提交验证 ==========
         function submitValidation() {
-            // 🚫 如果检测到乱写，不允许验证通过
-            if (_sloppyResult && _sloppyResult.length > 0) {
-                alert('当前填写内容存在问题（' + _sloppyResult.join('、') + '），请返回上一步认真修改后再提交验证。');
-                return;
-            }
-
+            // 检查是否需要修改选题
             formData.revisedTopic = document.getElementById('revisedTopic').value.trim();
 
             if (formData.needRevise === 'yes' && !formData.revisedTopic) {
                 alert('请输入修改后的选题');
                 return;
+            }
+
+            // 设置验证状态
+            if (_sloppyResult && _sloppyResult.length > 0) {
+                formData.verificationStatus = '需要重写';
+            } else {
+                formData.verificationStatus = '完成验证';
             }
 
             formData.submitTime = new Date().toLocaleString('zh-CN');
@@ -1658,7 +1661,7 @@
             if (formData.revisedTopic) dataLines.push('修改后选题：' + formData.revisedTopic);
             dataLines.push('提交时间：' + (formData.submitTime || new Date().toLocaleString('zh-CN')));
             dataLines.push('是否提交报名：' + (formData.enrollStatus || '否'));
-            dataLines.push('状态：已完成');
+            dataLines.push('验证状态：' + (formData.verificationStatus || '未知'));
 
             var summaryText = dataLines.join('\n');
             window._summaryText = summaryText;
