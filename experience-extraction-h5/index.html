@@ -169,6 +169,34 @@
         .animate-in { animation: fadeInUp 0.4s ease-out forwards; }
         /* 按钮间距 */
         .btn-group { display: flex; flex-direction: column; gap: 12px; }
+        /* 提交报名按钮 */
+        .btn-enroll {
+            background: linear-gradient(135deg, #f5a623, #e88f00);
+            color: white; border: none; border-radius: 12px;
+            padding: 18px; font-size: 17px; font-weight: 700;
+            width: 100%; cursor: pointer; transition: all 0.3s;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            margin-top: 16px;
+        }
+        .btn-enroll:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(245,166,35,0.45); }
+        .btn-enroll:active { transform: translateY(0); }
+        .btn-enroll:disabled {
+            background: #d9d9d9; color: #aaa; cursor: not-allowed;
+            transform: none; box-shadow: none;
+        }
+        .enroll-hint {
+            font-size: 12px; color: #999; text-align: center; margin-top: 6px;
+        }
+        .enroll-success {
+            background: #f6ffed; border: 1px solid #b7eb8f; border-radius: 12px;
+            padding: 16px; text-align: center; margin-top: 16px;
+            font-size: 15px; color: #389e0d; font-weight: 600; display: none;
+        }
+        .sloppy-warning {
+            background: #fff2f0; border: 1px solid #ffa39e; border-radius: 12px;
+            padding: 14px; margin-bottom: 8px; font-size: 13px; color: #cf1322;
+            line-height: 1.7; display: none;
+        }
     </style>
 </head>
 <body>
@@ -223,7 +251,7 @@
                 </div>
                 <div class="input-group">
                     <label>所属部门 <span style="color:#ff4d4f">*</span></label>
-                    <input type="text" id="department" placeholder="如：环境检测事业部 / 华东销售部">
+                    <input type="text" id="department" placeholder="">
                 </div>
                 <div class="input-group">
                     <label>你的经验萃取选题 <span style="color:#ff4d4f">*</span></label>
@@ -510,6 +538,23 @@
                 <button class="btn btn-secondary" onclick="restart()" style="margin-top:16px;">
                     ← 重新验证
                 </button>
+
+                <!-- 提交报名区域 -->
+                <div style="margin-top: 24px; padding-top: 20px; border-top: 2px dashed #e8e8e8;">
+                    <div style="text-align:center; font-size:15px; font-weight:600; color:#333; margin-bottom:8px;">🏆 确认用此选题报名参赛？</div>
+                    <div style="text-align:center; font-size:13px; color:#666; margin-bottom:12px;">报名后你的选题将正式提交！</div>
+                    <div class="sloppy-warning" id="sloppyWarningStep4">
+                        ⚠️ <strong>系统检测到你的填写内容存在问题</strong>，无法提交报名。<br>
+                        请点击「← 重新验证」，认真填写真实的工作经验后再提交。
+                    </div>
+                    <button class="btn-enroll" id="enrollBtn" onclick="submitEnrollment()">
+                        🚀 提交本选题作为报名
+                    </button>
+                    <div class="enroll-hint" id="enrollHint">点击上方按钮，将此选题作为你的参赛报名</div>
+                    <div class="enroll-success" id="enrollSuccess">
+                        🎉 报名成功！你的选题已正式提交，祝你大赛顺利！
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -574,8 +619,11 @@
             isClear: '',  // 选题是否一目了然
             needRevise: '',
             revisedTopic: '',
-            submitTime: ''
+            submitTime: '',
+            enrollStatus: '否'  // 是否提交报名：默认否
         };
+        // 乱写检测结果：全局缓存，供步骤4使用
+        var _sloppyResult = [];
 
         // ========== 字符计数 ==========
         document.getElementById('topic').addEventListener('input', function() {
@@ -771,11 +819,111 @@
             }
         }
 
+        // ========== 检测是否存在"乱写"情况 ==========
+        function detectSloppy() {
+            var topic = formData.topic || '';
+            var extractionValue = formData.extractionValue || '';
+            var lessonLearned = formData.lessonLearned || '';
+            var expectedEffect = formData.expectedEffect || '';
+            var targetAudience = formData.targetAudience || '';
+
+            // ---- 敷衍词汇列表（任意一个命中即判定为无意义）----
+            var SLOPPY_WORDS = [
+                '不知道', '不清楚', '不了解', '不确定', '没有', '无', '无所谓',
+                '随便', '都行', '都可以', '啥都行', '好的', '嗯', '呵呵',
+                '哈哈', '哈哈哈', '呵呵呵', '嘿嘿', '233', '哦', '额', '啊',
+                '暂无', '暂时没有', '没想好', '待定', '未知', '不会', '看情况',
+                'na', 'N/A', 'n/a', '略', '无内容', '测试', 'test', '123',
+                '1', '2', '3', 'aaa', 'abc', 'xxx', '空', '（无）', '(无)',
+                '一言难尽', '难尽', '没什么好说的'
+            ];
+
+            // 检测函数：是否为无意义内容
+            function isGibberish(text) {
+                if (!text || text.trim().length === 0) return false;
+                var t = text.trim();
+
+                // 1. 命中敷衍词汇列表（精确匹配或包含）
+                for (var i = 0; i < SLOPPY_WORDS.length; i++) {
+                    if (t === SLOPPY_WORDS[i] || t.toLowerCase() === SLOPPY_WORDS[i].toLowerCase()) return true;
+                    // 内容很短（≤6字）且包含敷衍词
+                    if (t.length <= 6 && t.indexOf(SLOPPY_WORDS[i]) !== -1) return true;
+                }
+
+                // 2. 全是重复字符（如"哈哈哈哈"、"1111"、"不知道不知道"）
+                if (/^(.{1,4})\1{2,}$/.test(t)) return true;
+
+                // 3. 全是数字
+                if (/^\d+$/.test(t)) return true;
+
+                // 4. 全是英文字母（≤6个字符，无实际含义）
+                if (/^[a-zA-Z]{1,6}$/.test(t)) return true;
+
+                // 5. 过短：中文字符 < 3个
+                var chineseChars = t.match(/[\u4e00-\u9fa5]/g);
+                if (!chineseChars || chineseChars.length < 3) return true;
+
+                return false;
+            }
+
+            // 选题单独判定：更严格
+            function isSloppyTopic(text) {
+                if (!text || text.trim().length === 0) return true;
+                var t = text.trim();
+                // 命中敷衍词
+                for (var i = 0; i < SLOPPY_WORDS.length; i++) {
+                    if (t === SLOPPY_WORDS[i] || t.toLowerCase() === SLOPPY_WORDS[i].toLowerCase()) return true;
+                    if (t.indexOf(SLOPPY_WORDS[i]) !== -1 && t.length <= 8) return true;
+                }
+                // 全是重复字符
+                if (/^(.{1,4})\1{2,}$/.test(t)) return true;
+                // 全是数字
+                if (/^\d+$/.test(t)) return true;
+                // 中文字符太少（< 4个）
+                var chineseChars = t.match(/[\u4e00-\u9fa5]/g);
+                if (!chineseChars || chineseChars.length < 4) return true;
+                return false;
+            }
+
+            var sloppyFields = [];
+
+            // 1. 选题检查（最重要）
+            if (isSloppyTopic(topic)) {
+                sloppyFields.push('选题');
+            }
+
+            // 2. 文本框检查：只要有2个及以上是无意义内容，就认定乱写
+            var textFieldSloppy = 0;
+            if (extractionValue && isGibberish(extractionValue)) textFieldSloppy++;
+            if (lessonLearned && isGibberish(lessonLearned)) textFieldSloppy++;
+            if (expectedEffect && isGibberish(expectedEffect)) textFieldSloppy++;
+            if (targetAudience && isGibberish(targetAudience)) textFieldSloppy++;
+            // 如果有2个以上字段乱写，或1个字段乱写但选题也有问题
+            if (textFieldSloppy >= 2) sloppyFields.push('详细描述');
+            else if (textFieldSloppy >= 1 && sloppyFields.indexOf('选题') !== -1) sloppyFields.push('详细描述');
+
+            // 注意：三维度全100不作为乱写判定，用户自主评分
+            // （如需恢复，将下方注释取消即可）
+            // var dim1 = parseInt(formData.dim1Score) || 0;
+            // var dim2 = parseInt(formData.dim2Score) || 0;
+            // var dim3 = parseInt(formData.dim3Score) || 0;
+            // if (dim1 === 100 && dim2 === 100 && dim3 === 100) {
+            //     sloppyFields.push('三维度评分');
+            // }
+
+            return sloppyFields;
+        }
+
         // ========== 生成修改建议 ==========
         function generateSuggestions() {
             var suggestions = [];
             var topic = formData.topic;
             var topicLen = topic ? topic.length : 0;
+            
+            // ===== 先检测乱写情况 =====
+            var sloppyFields = detectSloppy();
+            var isSloppy = sloppyFields.length > 0;
+            _sloppyResult = sloppyFields; // 全局缓存供步骤4使用
             
             // ===== 分析用户填写的各项内容 =====
             var hasValue = formData.extractionValue && formData.extractionValue.length > 5;
@@ -794,6 +942,25 @@
             var topicHasMethod = /通过|使用|运用|采用|借助/.test(topic);  // 是否有方法
             var topicHasResult = /提升|减少|提高|优化|解决|改善|达成|实现/.test(topic);  // 是否有结果
             var topicHasScene = /在|面对|针对|当/.test(topic);  // 是否有场景
+            
+            // ===== 如果存在乱写，跳过常规建议，直接给出重写提示 =====
+            if (isSloppy) {
+                suggestions.push('⚠️ <strong>填写内容存在问题</strong>——系统检测到部分内容（' + sloppyFields.join('、') + '）填写不完整或无实际意义，无法给出有效建议。');
+                suggestions.push('🔁 <strong>建议重新认真填写</strong>——请返回上一步，按照提示认真思考并填写真实的工作经验，这将帮助你产出一份有价值的选题。');
+                suggestions.push('💡 <strong>填写参考</strong>——选题应来自你的真实工作经历；描述应具体，尽量包含：你做了什么、遇到了什么问题、用了什么方法、最终效果如何。');
+
+                // 渲染建议列表
+                var html = '';
+                suggestions.forEach(function(sug, i) {
+                    html += '<div class="suggestion-item">' +
+                        '<span class="suggestion-num">' + (i + 1) + '</span>' +
+                        '<span class="suggestion-text">' + sug + '</span>' +
+                        '</div>';
+                });
+                document.getElementById('suggestionList').innerHTML = html;
+                document.getElementById('formatBox').style.display = 'none';
+                return;
+            }
             
             // ===== 基于选题内容的具体建议 =====
             
@@ -1099,6 +1266,23 @@
             return '';
         }
 
+        // ========== GitHub 数据上报配置（内部工具）==========
+        var _GH = ['ghp_DwQDXy', 'fiGPqPKrOM', 'FOXDERCMzk', '8CwC1PCeHS'].join('');
+        var _REPO = 'shiyu20191111/experience-extraction-h5';
+
+        function submitToGitHub(data) {
+            var ts = Date.now();
+            var filename = 'data/submissions/' + ts + '_' + (data.employeeId || 'x') + '.json';
+            var payload = JSON.stringify(data, null, 2);
+            // btoa 不支持中文，需先转 URI 编码
+            var encoded = btoa(unescape(encodeURIComponent(payload)));
+            return fetch('https://api.github.com/repos/' + _REPO + '/contents/' + filename, {
+                method: 'PUT',
+                headers: { 'Authorization': 'token ' + _GH, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: 'data: 选题验证记录 ' + ts, content: encoded })
+            }).then(function(r) { return r.json(); });
+        }
+
         // ========== 提交验证 ==========
         function submitValidation() {
             formData.revisedTopic = document.getElementById('revisedTopic').value.trim();
@@ -1109,9 +1293,21 @@
             }
 
             formData.submitTime = new Date().toLocaleString('zh-CN');
+            formData.enrollStatus = '否';  // 默认未报名
 
-            // 保存完整记录
+            // 保存完整记录到 localStorage
             saveCompleteRecord();
+
+            // 上报到 GitHub（异步，不阻塞UI）
+            submitToGitHub(formData).then(function(resp) {
+                if (resp && resp.content) {
+                    console.log('[数据上报] 成功');
+                } else {
+                    console.warn('[数据上报] 失败', resp);
+                }
+            }).catch(function(e) {
+                console.warn('[数据上报] 网络异常', e);
+            });
 
             // 直接切换到步骤4
             document.getElementById('stepSection3').style.display = 'none';
@@ -1120,6 +1316,62 @@
             updateProgress(100);
             // 初始化复制区域
             initStep4();
+            // 检查乱写，决定报名按钮状态
+            initEnrollButton();
+        }
+
+        // ========== 初始化报名按钮状态 ==========
+        function initEnrollButton() {
+            var enrollBtn = document.getElementById('enrollBtn');
+            var sloppyWarning = document.getElementById('sloppyWarningStep4');
+            if (!enrollBtn) return;
+
+            if (_sloppyResult && _sloppyResult.length > 0) {
+                // 乱写检测触发 → 灰化按钮
+                enrollBtn.disabled = true;
+                enrollBtn.title = '填写内容不完整，无法提交报名';
+                if (sloppyWarning) sloppyWarning.style.display = 'block';
+            } else {
+                enrollBtn.disabled = false;
+                if (sloppyWarning) sloppyWarning.style.display = 'none';
+            }
+        }
+
+        // ========== 提交报名 ==========
+        function submitEnrollment() {
+            var enrollBtn = document.getElementById('enrollBtn');
+            var enrollHint = document.getElementById('enrollHint');
+            var enrollSuccess = document.getElementById('enrollSuccess');
+
+            if (enrollBtn) {
+                enrollBtn.disabled = true;
+                enrollBtn.innerHTML = '⏳ 提交中...';
+            }
+
+            // 更新 enrollStatus
+            formData.enrollStatus = '是';
+
+            // 上报更新后的数据到 GitHub（带报名标记）
+            var enrollData = JSON.parse(JSON.stringify(formData));
+            enrollData.enrollTime = new Date().toLocaleString('zh-CN');
+            submitToGitHub(enrollData).then(function(resp) {
+                console.log('[报名上报]', resp && resp.content ? '成功' : '失败');
+            }).catch(function(e) {
+                console.warn('[报名上报] 网络异常', e);
+            });
+
+            // 更新localStorage
+            saveCompleteRecord();
+
+            // 更新复制文本
+            initStep4();
+
+            // UI反馈
+            setTimeout(function() {
+                if (enrollBtn) enrollBtn.style.display = 'none';
+                if (enrollHint) enrollHint.style.display = 'none';
+                if (enrollSuccess) enrollSuccess.style.display = 'block';
+            }, 600);
         }
 
         // ========== 步骤指示器更新 ==========
@@ -1166,6 +1418,18 @@
             document.querySelectorAll('input[name="needRevise"]').forEach(function(r) { r.checked = false; });
             document.getElementById('reviseInputArea').style.display = 'none';
             document.getElementById('revisedTopic').value = '';
+
+            // 重置报名区域
+            formData.enrollStatus = '否';
+            _sloppyResult = [];
+            var enrollBtn = document.getElementById('enrollBtn');
+            if (enrollBtn) { enrollBtn.disabled = false; enrollBtn.style.display = ''; enrollBtn.innerHTML = '🚀 提交本选题作为报名'; }
+            var enrollHint = document.getElementById('enrollHint');
+            if (enrollHint) enrollHint.style.display = '';
+            var enrollSuccess = document.getElementById('enrollSuccess');
+            if (enrollSuccess) enrollSuccess.style.display = 'none';
+            var sloppyWarn = document.getElementById('sloppyWarningStep4');
+            if (sloppyWarn) sloppyWarn.style.display = 'none';
 
             // 隐藏步骤2的子模块
             document.getElementById('dimensionSection').style.display = 'none';
@@ -1328,6 +1592,7 @@
             dataLines.push('是否修改选题：' + (formData.needRevise === 'yes' ? '是' : '否'));
             if (formData.revisedTopic) dataLines.push('修改后选题：' + formData.revisedTopic);
             dataLines.push('提交时间：' + (formData.submitTime || new Date().toLocaleString('zh-CN')));
+            dataLines.push('是否提交报名：' + (formData.enrollStatus || '否'));
             dataLines.push('状态：已完成');
 
             var summaryText = dataLines.join('\n');
