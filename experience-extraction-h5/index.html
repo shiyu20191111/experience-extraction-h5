@@ -487,7 +487,7 @@
             </div>
 
             <div class="btn-group">
-                <button class="btn btn-secondary" onclick="goToStep2()">
+                <button class="btn btn-secondary" onclick="goBackToStep2()">
                     ← 返回修改
                 </button>
                     <button class="btn confirm-btn" onclick="submitValidation()" id="validationBtn">
@@ -670,6 +670,14 @@
             // 切换步骤
             document.getElementById('stepSection1').classList.remove('active');
             document.getElementById('stepSection2').classList.add('active');
+            updateStepIndicator(2);
+            updateProgress(50);
+        }
+
+        // ========== 步骤3 → 步骤2（返回修改，不验证）==========
+        function goBackToStep2() {
+            document.getElementById('stepSection3').style.display = 'none';
+            document.getElementById('stepSection2').style.display = 'block';
             updateStepIndicator(2);
             updateProgress(50);
         }
