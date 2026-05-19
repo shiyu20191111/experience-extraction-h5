@@ -865,9 +865,9 @@
         function _isSloppyTopicGlobal(text) {
             if (!text || text.trim().length === 0) return true;
             var t = text.trim();
+            // 选题只检查明显的乱写：完全匹配敷衍词、重复字符、纯数字、中文字符极少
             for (var i = 0; i < _GLOBAL_SLOPPY_WORDS.length; i++) {
                 if (t === _GLOBAL_SLOPPY_WORDS[i] || t.toLowerCase() === _GLOBAL_SLOPPY_WORDS[i].toLowerCase()) return true;
-                if (t.indexOf(_GLOBAL_SLOPPY_WORDS[i]) !== -1 && t.length <= 8) return true;
             }
             if (/^(.{1,4})\1{2,}$/.test(t)) return true;
             if (/^\d+$/.test(t)) return true;
@@ -880,7 +880,7 @@
         function detectSloppy() {
             var topic = formData.topic || '';
             var extractionValue = formData.extractionValue || '';
-            var lessonLearned = formData.lessonLearned || '';
+            var lessonLearned = formData.lessonLearned || '';  // 弯路教训不参与乱写检测
             var expectedEffect = formData.expectedEffect || '';
             var targetAudience = formData.targetAudience || '';
 
@@ -891,10 +891,10 @@
                 sloppyFields.push('选题');
             }
 
-            // 2. 文本框检查：只要有2个及以上是无意义内容，就认定乱写
+            // 2. 文本框检查（弯路教训除外）：只要有2个及以上是无意义内容，就认定乱写
             var textFieldSloppy = 0;
             if (extractionValue && _isGibberishGlobal(extractionValue)) textFieldSloppy++;
-            if (lessonLearned && _isGibberishGlobal(lessonLearned)) textFieldSloppy++;
+            // 弯路教训不检测乱写，用户可能真的没有弯路
             if (expectedEffect && _isGibberishGlobal(expectedEffect)) textFieldSloppy++;
             if (targetAudience && _isGibberishGlobal(targetAudience)) textFieldSloppy++;
             // 如果有2个以上字段乱写，或1个字段乱写但选题也有问题
