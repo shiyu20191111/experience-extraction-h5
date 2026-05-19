@@ -861,38 +861,32 @@
             return false;
         }
 
-        // 检测选题是否为乱写（全局版本）
+        // 检测选题是否为乱写（全局版本）- 宽松版
+        // 只检测真正无意义的乱写，不因"格式不好"而拦截
         function _isSloppyTopicGlobal(text) {
             if (!text || text.trim().length === 0) return true;
             var t = text.trim();
-            // 选题只检查明显的乱写：完全匹配敷衍词、重复字符、纯数字、中文字符极少
+            // 只检查明显的乱写：完全匹配敷衍词、重复字符、纯数字
             for (var i = 0; i < _GLOBAL_SLOPPY_WORDS.length; i++) {
                 if (t === _GLOBAL_SLOPPY_WORDS[i] || t.toLowerCase() === _GLOBAL_SLOPPY_WORDS[i].toLowerCase()) return true;
             }
-            if (/^(.{1,4})\1{2,}$/.test(t)) return true;
-            if (/^\d+$/.test(t)) return true;
-            var chineseChars = t.match(/[\u4e00-\u9fa5]/g);
-            if (!chineseChars || chineseChars.length < 4) return true;
+            if (/^(.{1,4})\1{2,}$/.test(t)) return true;  // 重复字符
+            if (/^\d+$/.test(t)) return true;  // 纯数字
             return false;
         }
 
-        // 检测弯路教训是否为真正的乱写（宽松版）
-        // "没有弯路"、"暂无"、"0"等都是合理的，不应触发验证失败
+        // 检测弯路教训是否为真正的乱写（最宽松版）
+        // "没有弯路"、"暂无"、"无"等都是合理填写
         function _isSloppyLessonRelaxed(text) {
             if (!text || text.trim().length === 0) return false;  // 空内容不算乱写
             var t = text.trim();
-            // 只检测真正的乱写：纯测试内容、重复字符、纯数字
+            // 只检测真正的乱写：重复字符、纯数字<=2位、纯英文<=4位
             if (/^(.{1,4})\1{2,}$/.test(t)) return true;  // 重复字符如"啊啊啊"
             if (/^\d+$/.test(t) && t.length <= 2) return true;  // 纯数字且<=2位（如"0"、"1"）
             if (/^[a-zA-Z]{1,4}$/.test(t)) return true;  // 纯英文字母如"test"
-            // 只要有3个以上中文字符，或者有实质内容，就不算乱写
+            // 只要有1个以上中文字符，就不算乱写（因为"没有"、"暂无"都是有意义的填写）
             var chineseChars = t.match(/[\u4e00-\u9fa5]/g);
-            if (chineseChars && chineseChars.length >= 3) return false;
-            // 如果内容是敷衍词以外的合理填写（如"没有"、"暂无"），不算乱写
-            var relaxedWords = ['没有', '暂无', '没有弯路', '无', '暂无弯路', '没有教训', '待补充', '暂无教训'];
-            for (var i = 0; i < relaxedWords.length; i++) {
-                if (t === relaxedWords[i] || t.toLowerCase() === relaxedWords[i].toLowerCase()) return false;
-            }
+            if (chineseChars && chineseChars.length >= 1) return false;
             return false;
         }
 
