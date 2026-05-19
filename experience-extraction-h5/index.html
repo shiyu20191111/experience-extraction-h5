@@ -937,16 +937,16 @@
                 if (sloppyFields.indexOf('选题') !== -1) {
                     problemList.push('【选题】"' + (formData.topic || '（空）') + '"——格式不符合要求，建议参考推荐格式重新表述');
                 }
-                if (extractionValue && isGibberish(extractionValue)) {
+                if (extractionValue && _isGibberishGlobal(extractionValue)) {
                     problemList.push('【萃取价值】"' + extractionValue + '"——内容过于简单或无实际意义，请补充具体描述');
                 }
-                if (lessonLearned && isGibberish(lessonLearned)) {
+                if (lessonLearned && _isGibberishGlobal(lessonLearned)) {
                     problemList.push('【弯路教训】"' + lessonLearned + '"——内容过于简单或无实际意义，请补充您经历过的真实困难或教训');
                 }
-                if (expectedEffect && isGibberish(expectedEffect)) {
+                if (expectedEffect && _isGibberishGlobal(expectedEffect)) {
                     problemList.push('【期望效果】"' + expectedEffect + '"——内容过于简单或无实际意义，请补充萃取成功后期望达成的具体效果');
                 }
-                if (targetAudience && isGibberish(targetAudience)) {
+                if (targetAudience && _isGibberishGlobal(targetAudience)) {
                     problemList.push('【目标学员】"' + targetAudience + '"——内容过于简单或无实际意义，请说明这个经验适合哪些人学习');
                 }
 
