@@ -876,6 +876,26 @@
             return false;
         }
 
+        // 检测弯路教训是否为真正的乱写（宽松版）
+        // "没有弯路"、"暂无"、"0"等都是合理的，不应触发验证失败
+        function _isSloppyLessonRelaxed(text) {
+            if (!text || text.trim().length === 0) return false;  // 空内容不算乱写
+            var t = text.trim();
+            // 只检测真正的乱写：纯测试内容、重复字符、纯数字
+            if (/^(.{1,4})\1{2,}$/.test(t)) return true;  // 重复字符如"啊啊啊"
+            if (/^\d+$/.test(t) && t.length <= 2) return true;  // 纯数字且<=2位（如"0"、"1"）
+            if (/^[a-zA-Z]{1,4}$/.test(t)) return true;  // 纯英文字母如"test"
+            // 只要有3个以上中文字符，或者有实质内容，就不算乱写
+            var chineseChars = t.match(/[\u4e00-\u9fa5]/g);
+            if (chineseChars && chineseChars.length >= 3) return false;
+            // 如果内容是敷衍词以外的合理填写（如"没有"、"暂无"），不算乱写
+            var relaxedWords = ['没有', '暂无', '没有弯路', '无', '暂无弯路', '没有教训', '待补充', '暂无教训'];
+            for (var i = 0; i < relaxedWords.length; i++) {
+                if (t === relaxedWords[i] || t.toLowerCase() === relaxedWords[i].toLowerCase()) return false;
+            }
+            return false;
+        }
+
         // ========== 检测是否存在"乱写"情况 ==========
         function detectSloppy() {
             var topic = formData.topic || '';
@@ -949,7 +969,7 @@
                 if (extractionValue && _isGibberishGlobal(extractionValue)) {
                     problemList.push('【萃取价值】"' + extractionValue + '"——内容过于简单或无实际意义，请补充具体描述');
                 }
-                if (lessonLearned && _isGibberishGlobal(lessonLearned)) {
+                if (lessonLearned && _isSloppyLessonRelaxed(lessonLearned)) {
                     problemList.push('【弯路教训】"' + lessonLearned + '"——内容过于简单或无实际意义，请补充您经历过的真实困难或教训');
                 }
                 if (expectedEffect && _isGibberishGlobal(expectedEffect)) {
