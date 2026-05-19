@@ -771,11 +771,65 @@
             }
         }
 
+        // ========== 检测是否存在"乱写"情况 ==========
+        function detectSloppy() {
+            var topic = formData.topic || '';
+            var extractionValue = formData.extractionValue || '';
+            var lessonLearned = formData.lessonLearned || '';
+            var expectedEffect = formData.expectedEffect || '';
+            var targetAudience = formData.targetAudience || '';
+
+            // 检测函数：是否为无意义内容
+            function isGibberish(text) {
+                if (!text || text.trim().length === 0) return false;
+                var t = text.trim();
+                // 全是重复字符（如"哈哈哈哈"、"1111"、"aaa"）
+                if (/^(.)\1{2,}$/.test(t)) return true;
+                // 全是数字
+                if (/^\d+$/.test(t)) return true;
+                // 全是英文字母且无实际含义（纯随机字母，超过2字符）
+                if (/^[a-zA-Z]{1,4}$/.test(t)) return true;
+                // 过短（中文少于2个字）
+                var chineseChars = t.match(/[\u4e00-\u9fa5]/g);
+                if (!chineseChars || chineseChars.length < 2) return true;
+                return false;
+            }
+
+            var sloppyFields = [];
+
+            // 1. 选题检查
+            if (isGibberish(topic) || topic.trim().length < 4) {
+                sloppyFields.push('选题');
+            }
+
+            // 2. 三个文本框：只要有两个及以上是无意义内容，就认定乱写
+            var textFieldSloppy = 0;
+            if (extractionValue && isGibberish(extractionValue)) textFieldSloppy++;
+            if (lessonLearned && isGibberish(lessonLearned)) textFieldSloppy++;
+            if (expectedEffect && isGibberish(expectedEffect)) textFieldSloppy++;
+            if (targetAudience && isGibberish(targetAudience)) textFieldSloppy++;
+            if (textFieldSloppy >= 2) sloppyFields.push('详细描述');
+
+            // 3. 三维度分数全为100（明显敷衍打分）
+            var dim1 = parseInt(formData.dim1Score) || 0;
+            var dim2 = parseInt(formData.dim2Score) || 0;
+            var dim3 = parseInt(formData.dim3Score) || 0;
+            if (dim1 === 100 && dim2 === 100 && dim3 === 100) {
+                sloppyFields.push('三维度评分');
+            }
+
+            return sloppyFields;
+        }
+
         // ========== 生成修改建议 ==========
         function generateSuggestions() {
             var suggestions = [];
             var topic = formData.topic;
             var topicLen = topic ? topic.length : 0;
+            
+            // ===== 先检测乱写情况 =====
+            var sloppyFields = detectSloppy();
+            var isSloppy = sloppyFields.length > 0;
             
             // ===== 分析用户填写的各项内容 =====
             var hasValue = formData.extractionValue && formData.extractionValue.length > 5;
@@ -794,6 +848,25 @@
             var topicHasMethod = /通过|使用|运用|采用|借助/.test(topic);  // 是否有方法
             var topicHasResult = /提升|减少|提高|优化|解决|改善|达成|实现/.test(topic);  // 是否有结果
             var topicHasScene = /在|面对|针对|当/.test(topic);  // 是否有场景
+            
+            // ===== 如果存在乱写，跳过常规建议，直接给出重写提示 =====
+            if (isSloppy) {
+                suggestions.push('⚠️ <strong>填写内容存在问题</strong>——系统检测到部分内容（' + sloppyFields.join('、') + '）填写不完整或无实际意义，无法给出有效建议。');
+                suggestions.push('🔁 <strong>建议重新认真填写</strong>——请返回上一步，按照提示认真思考并填写真实的工作经验，这将帮助你产出一份有价值的选题。');
+                suggestions.push('💡 <strong>填写参考</strong>——选题应来自你的真实工作经历；描述应具体，尽量包含：你做了什么、遇到了什么问题、用了什么方法、最终效果如何。');
+
+                // 渲染建议列表
+                var html = '';
+                suggestions.forEach(function(sug, i) {
+                    html += '<div class="suggestion-item">' +
+                        '<span class="suggestion-num">' + (i + 1) + '</span>' +
+                        '<span class="suggestion-text">' + sug + '</span>' +
+                        '</div>';
+                });
+                document.getElementById('suggestionList').innerHTML = html;
+                document.getElementById('formatBox').style.display = 'none';
+                return;
+            }
             
             // ===== 基于选题内容的具体建议 =====
             
