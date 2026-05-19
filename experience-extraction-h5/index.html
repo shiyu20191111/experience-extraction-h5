@@ -490,9 +490,9 @@
                 <button class="btn btn-secondary" onclick="goToStep2()">
                     ← 返回修改
                 </button>
-                <button class="btn confirm-btn" onclick="submitValidation()">
-                    <span>✓</span> 完成验证
-                </button>
+                    <button class="btn confirm-btn" onclick="submitValidation()" id="validationBtn">
+                        <span>✓</span> 完成验证
+                    </button>
             </div>
         </div>
 
@@ -702,6 +702,12 @@
             var isClear = document.querySelector('input[name="isClear"]:checked');
             if (!hasCase) { alert('请选择是否有成功案例'); return; }
             if (!isClear) { alert('请选择选题是否一目了然'); return; }
+
+            // 🚫 如果没有成功案例，不允许进入下一步
+            if (hasCase.value === 'no') {
+                alert('经验萃取需要基于成功经验，请先积累1-2个成功案例后再进行萃取，或更换一个你更有把握的选题');
+                return;
+            }
             
             // 保存数据
             formData.source = source;
@@ -819,6 +825,48 @@
             }
         }
 
+        // ========== 全局敷衍词汇 & 检测函数（供多处复用）==========
+        var _GLOBAL_SLOPPY_WORDS = [
+            '不知道', '不清楚', '不了解', '不确定', '没有', '无', '无所谓',
+            '随便', '都行', '都可以', '啥都行', '好的', '嗯', '呵呵',
+            '哈哈', '哈哈哈', '呵呵呵', '嘿嘿', '233', '哦', '额', '啊',
+            '暂无', '暂时没有', '没想好', '待定', '未知', '不会', '看情况',
+            'na', 'N/A', 'n/a', '略', '无内容', '测试', 'test', '123',
+            '1', '2', '3', 'aaa', 'abc', 'xxx', '空', '（无）', '(无)',
+            '一言难尽', '难尽', '没什么好说的'
+        ];
+
+        // 检测单段文本是否为无意义内容（全局版本）
+        function _isGibberishGlobal(text) {
+            if (!text || text.trim().length === 0) return false;
+            var t = text.trim();
+            for (var i = 0; i < _GLOBAL_SLOPPY_WORDS.length; i++) {
+                if (t === _GLOBAL_SLOPPY_WORDS[i] || t.toLowerCase() === _GLOBAL_SLOPPY_WORDS[i].toLowerCase()) return true;
+                if (t.length <= 6 && t.indexOf(_GLOBAL_SLOPPY_WORDS[i]) !== -1) return true;
+            }
+            if (/^(.{1,4})\1{2,}$/.test(t)) return true;
+            if (/^\d+$/.test(t)) return true;
+            if (/^[a-zA-Z]{1,6}$/.test(t)) return true;
+            var chineseChars = t.match(/[\u4e00-\u9fa5]/g);
+            if (!chineseChars || chineseChars.length < 3) return true;
+            return false;
+        }
+
+        // 检测选题是否为乱写（全局版本）
+        function _isSloppyTopicGlobal(text) {
+            if (!text || text.trim().length === 0) return true;
+            var t = text.trim();
+            for (var i = 0; i < _GLOBAL_SLOPPY_WORDS.length; i++) {
+                if (t === _GLOBAL_SLOPPY_WORDS[i] || t.toLowerCase() === _GLOBAL_SLOPPY_WORDS[i].toLowerCase()) return true;
+                if (t.indexOf(_GLOBAL_SLOPPY_WORDS[i]) !== -1 && t.length <= 8) return true;
+            }
+            if (/^(.{1,4})\1{2,}$/.test(t)) return true;
+            if (/^\d+$/.test(t)) return true;
+            var chineseChars = t.match(/[\u4e00-\u9fa5]/g);
+            if (!chineseChars || chineseChars.length < 4) return true;
+            return false;
+        }
+
         // ========== 检测是否存在"乱写"情况 ==========
         function detectSloppy() {
             var topic = formData.topic || '';
@@ -827,90 +875,24 @@
             var expectedEffect = formData.expectedEffect || '';
             var targetAudience = formData.targetAudience || '';
 
-            // ---- 敷衍词汇列表（任意一个命中即判定为无意义）----
-            var SLOPPY_WORDS = [
-                '不知道', '不清楚', '不了解', '不确定', '没有', '无', '无所谓',
-                '随便', '都行', '都可以', '啥都行', '好的', '嗯', '呵呵',
-                '哈哈', '哈哈哈', '呵呵呵', '嘿嘿', '233', '哦', '额', '啊',
-                '暂无', '暂时没有', '没想好', '待定', '未知', '不会', '看情况',
-                'na', 'N/A', 'n/a', '略', '无内容', '测试', 'test', '123',
-                '1', '2', '3', 'aaa', 'abc', 'xxx', '空', '（无）', '(无)',
-                '一言难尽', '难尽', '没什么好说的'
-            ];
-
-            // 检测函数：是否为无意义内容
-            function isGibberish(text) {
-                if (!text || text.trim().length === 0) return false;
-                var t = text.trim();
-
-                // 1. 命中敷衍词汇列表（精确匹配或包含）
-                for (var i = 0; i < SLOPPY_WORDS.length; i++) {
-                    if (t === SLOPPY_WORDS[i] || t.toLowerCase() === SLOPPY_WORDS[i].toLowerCase()) return true;
-                    // 内容很短（≤6字）且包含敷衍词
-                    if (t.length <= 6 && t.indexOf(SLOPPY_WORDS[i]) !== -1) return true;
-                }
-
-                // 2. 全是重复字符（如"哈哈哈哈"、"1111"、"不知道不知道"）
-                if (/^(.{1,4})\1{2,}$/.test(t)) return true;
-
-                // 3. 全是数字
-                if (/^\d+$/.test(t)) return true;
-
-                // 4. 全是英文字母（≤6个字符，无实际含义）
-                if (/^[a-zA-Z]{1,6}$/.test(t)) return true;
-
-                // 5. 过短：中文字符 < 3个
-                var chineseChars = t.match(/[\u4e00-\u9fa5]/g);
-                if (!chineseChars || chineseChars.length < 3) return true;
-
-                return false;
-            }
-
-            // 选题单独判定：更严格
-            function isSloppyTopic(text) {
-                if (!text || text.trim().length === 0) return true;
-                var t = text.trim();
-                // 命中敷衍词
-                for (var i = 0; i < SLOPPY_WORDS.length; i++) {
-                    if (t === SLOPPY_WORDS[i] || t.toLowerCase() === SLOPPY_WORDS[i].toLowerCase()) return true;
-                    if (t.indexOf(SLOPPY_WORDS[i]) !== -1 && t.length <= 8) return true;
-                }
-                // 全是重复字符
-                if (/^(.{1,4})\1{2,}$/.test(t)) return true;
-                // 全是数字
-                if (/^\d+$/.test(t)) return true;
-                // 中文字符太少（< 4个）
-                var chineseChars = t.match(/[\u4e00-\u9fa5]/g);
-                if (!chineseChars || chineseChars.length < 4) return true;
-                return false;
-            }
-
             var sloppyFields = [];
 
             // 1. 选题检查（最重要）
-            if (isSloppyTopic(topic)) {
+            if (_isSloppyTopicGlobal(topic)) {
                 sloppyFields.push('选题');
             }
 
             // 2. 文本框检查：只要有2个及以上是无意义内容，就认定乱写
             var textFieldSloppy = 0;
-            if (extractionValue && isGibberish(extractionValue)) textFieldSloppy++;
-            if (lessonLearned && isGibberish(lessonLearned)) textFieldSloppy++;
-            if (expectedEffect && isGibberish(expectedEffect)) textFieldSloppy++;
-            if (targetAudience && isGibberish(targetAudience)) textFieldSloppy++;
+            if (extractionValue && _isGibberishGlobal(extractionValue)) textFieldSloppy++;
+            if (lessonLearned && _isGibberishGlobal(lessonLearned)) textFieldSloppy++;
+            if (expectedEffect && _isGibberishGlobal(expectedEffect)) textFieldSloppy++;
+            if (targetAudience && _isGibberishGlobal(targetAudience)) textFieldSloppy++;
             // 如果有2个以上字段乱写，或1个字段乱写但选题也有问题
             if (textFieldSloppy >= 2) sloppyFields.push('详细描述');
             else if (textFieldSloppy >= 1 && sloppyFields.indexOf('选题') !== -1) sloppyFields.push('详细描述');
 
             // 注意：三维度全100不作为乱写判定，用户自主评分
-            // （如需恢复，将下方注释取消即可）
-            // var dim1 = parseInt(formData.dim1Score) || 0;
-            // var dim2 = parseInt(formData.dim2Score) || 0;
-            // var dim3 = parseInt(formData.dim3Score) || 0;
-            // if (dim1 === 100 && dim2 === 100 && dim3 === 100) {
-            //     sloppyFields.push('三维度评分');
-            // }
-
             return sloppyFields;
         }
 
@@ -945,8 +927,44 @@
             
             // ===== 如果存在乱写，跳过常规建议，直接给出重写提示 =====
             if (isSloppy) {
-                suggestions.push('⚠️ <strong>填写内容存在问题</strong>——系统检测到部分内容（' + sloppyFields.join('、') + '）填写不完整或无实际意义，无法给出有效建议。');
-                suggestions.push('🔁 <strong>建议重新认真填写</strong>——请返回上一步，按照提示认真思考并填写真实的工作经验，这将帮助你产出一份有价值的选题。');
+                // ---- 生成具体问题清单 ----
+                var problemList = [];
+                var extractionValue = formData.extractionValue || '';
+                var lessonLearned = formData.lessonLearned || '';
+                var expectedEffect = formData.expectedEffect || '';
+                var targetAudience = formData.targetAudience || '';
+
+                if (sloppyFields.indexOf('选题') !== -1) {
+                    problemList.push('【选题】"' + (formData.topic || '（空）') + '"——格式不符合要求，建议参考推荐格式重新表述');
+                }
+                if (extractionValue && isGibberish(extractionValue)) {
+                    problemList.push('【萃取价值】"' + extractionValue + '"——内容过于简单或无实际意义，请补充具体描述');
+                }
+                if (lessonLearned && isGibberish(lessonLearned)) {
+                    problemList.push('【弯路教训】"' + lessonLearned + '"——内容过于简单或无实际意义，请补充您经历过的真实困难或教训');
+                }
+                if (expectedEffect && isGibberish(expectedEffect)) {
+                    problemList.push('【期望效果】"' + expectedEffect + '"——内容过于简单或无实际意义，请补充萃取成功后期望达成的具体效果');
+                }
+                if (targetAudience && isGibberish(targetAudience)) {
+                    problemList.push('【目标学员】"' + targetAudience + '"——内容过于简单或无实际意义，请说明这个经验适合哪些人学习');
+                }
+
+                // 第1条：总述 + 问题清单
+                if (problemList.length > 0) {
+                    suggestions.push('⚠️ <strong>检测到以下' + problemList.length + '项填写有问题：</strong><br>' +
+                        problemList.map(function(p, i) {
+                            return '<span style="display:block;padding-left:1em;color:#cf1322;">' + (i + 1) + '. ' + p + '</span>';
+                        }).join('')
+                    );
+                } else {
+                    suggestions.push('⚠️ <strong>填写内容存在问题</strong>——系统检测到部分内容填写不完整或无实际意义，无法给出有效建议。');
+                }
+
+                // 第2条：引导重写
+                suggestions.push('🔁 <strong>请返回上一步，认真思考后重新填写</strong>——本次填写的数据不会被保存，请放心修改后再提交。');
+
+                // 第3条：填写参考
                 suggestions.push('💡 <strong>填写参考</strong>——选题应来自你的真实工作经历；描述应具体，尽量包含：你做了什么、遇到了什么问题、用了什么方法、最终效果如何。');
 
                 // 渲染建议列表
@@ -959,6 +977,17 @@
                 });
                 document.getElementById('suggestionList').innerHTML = html;
                 document.getElementById('formatBox').style.display = 'none';
+
+                // 🚫 乱写时禁用"完成验证"按钮
+                var validationBtn = document.getElementById('validationBtn');
+                if (validationBtn) {
+                    validationBtn.disabled = true;
+                    validationBtn.style.background = '#d9d9d9';
+                    validationBtn.style.color = '#aaa';
+                    validationBtn.style.cursor = 'not-allowed';
+                    validationBtn.style.boxShadow = 'none';
+                    validationBtn.onclick = function() { return false; };
+                }
                 return;
             }
             
@@ -1072,6 +1101,17 @@
             
             // 更新格式框
             updateFormatBox();
+
+            // ✅ 正常内容：恢复"完成验证"按钮
+            var validationBtn = document.getElementById('validationBtn');
+            if (validationBtn) {
+                validationBtn.disabled = false;
+                validationBtn.style.background = '';
+                validationBtn.style.color = '';
+                validationBtn.style.cursor = '';
+                validationBtn.style.boxShadow = '';
+                validationBtn.onclick = submitValidation;
+            }
         }
         
         // ========== 更新优秀选题要素框 ==========
@@ -1285,6 +1325,12 @@
 
         // ========== 提交验证 ==========
         function submitValidation() {
+            // 🚫 如果检测到乱写，不允许验证通过
+            if (_sloppyResult && _sloppyResult.length > 0) {
+                alert('当前填写内容存在问题（' + _sloppyResult.join('、') + '），请返回上一步认真修改后再提交验证。');
+                return;
+            }
+
             formData.revisedTopic = document.getElementById('revisedTopic').value.trim();
 
             if (formData.needRevise === 'yes' && !formData.revisedTopic) {
@@ -1430,6 +1476,17 @@
             if (enrollSuccess) enrollSuccess.style.display = 'none';
             var sloppyWarn = document.getElementById('sloppyWarningStep4');
             if (sloppyWarn) sloppyWarn.style.display = 'none';
+
+            // 重置"完成验证"按钮
+            var validationBtn = document.getElementById('validationBtn');
+            if (validationBtn) {
+                validationBtn.disabled = false;
+                validationBtn.style.background = '';
+                validationBtn.style.color = '';
+                validationBtn.style.cursor = '';
+                validationBtn.style.boxShadow = '';
+                validationBtn.onclick = submitValidation;
+            }
 
             // 隐藏步骤2的子模块
             document.getElementById('dimensionSection').style.display = 'none';
