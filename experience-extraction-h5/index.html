@@ -1381,17 +1381,60 @@
         var _GH = ['ghp_DwQDXy', 'fiGPqPKrOM', 'FOXDERCMzk', '8CwC1PCeHS'].join('');
         var _REPO = 'shiyu20191111/experience-extraction-h5';
 
-        function submitToGitHub(data) {
-            var ts = Date.now();
+        // 全局变量：当前记录的 recordId
+        var _currentRecordId = 0;
+
+        // ========== 上报到 GitHub ==========
+        function submitToGitHub(data, isUpdate) {
+            // 如果是更新操作（报名），使用已有的 recordId；否则生成新 recordId
+            var ts;
+            if (isUpdate && _currentRecordId > 0) {
+                ts = _currentRecordId;
+            } else {
+                ts = Date.now();
+                _currentRecordId = ts;  // 保存 recordId 供后续更新使用
+            }
+            data.recordId = ts;
+
             var filename = 'data/submissions/' + ts + '_' + (data.employeeId || 'x') + '.json';
             var payload = JSON.stringify(data, null, 2);
+
             // btoa 不支持中文，需先转 URI 编码
             var encoded = btoa(unescape(encodeURIComponent(payload)));
-            return fetch('https://api.github.com/repos/' + _REPO + '/contents/' + filename, {
+
+            var fetchOptions = {
                 method: 'PUT',
                 headers: { 'Authorization': 'token ' + _GH, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: 'data: 选题验证记录 ' + ts, content: encoded })
-            }).then(function(r) { return r.json(); });
+                body: JSON.stringify({ message: (isUpdate ? 'update: ' : 'data: ') + (data.name || '') + ' ' + ts, content: encoded })
+            };
+
+            // 如果是更新操作，需要先获取原文件的 SHA
+            if (isUpdate) {
+                return fetch('https://api.github.com/repos/' + _REPO + '/contents/' + filename, {
+                    method: 'GET',
+                    headers: { 'Authorization': 'token ' + _GH }
+                }).then(function(r) { return r.json(); })
+                .then(function(meta) {
+                    if (meta.sha) {
+                        fetchOptions.body = JSON.stringify({
+                            message: (isUpdate ? 'update: ' : 'data: ') + (data.name || '') + ' ' + ts,
+                            content: encoded,
+                            sha: meta.sha
+                        });
+                    }
+                    return fetch('https://api.github.com/repos/' + _REPO + '/contents/' + filename, fetchOptions);
+                }).then(function(r) { return r.json(); })
+                .catch(function(e) {
+                    console.warn('[GitHub上报] 更新失败，尝试新建', e);
+                    // 如果更新失败，尝试创建新文件
+                    delete fetchOptions.body;
+                    fetchOptions.body = JSON.stringify({ message: 'data: ' + (data.name || '') + ' ' + ts, content: encoded });
+                    return fetch('https://api.github.com/repos/' + _REPO + '/contents/' + filename, fetchOptions).then(function(r) { return r.json(); });
+                });
+            } else {
+                return fetch('https://api.github.com/repos/' + _REPO + '/contents/' + filename, fetchOptions)
+                    .then(function(r) { return r.json(); });
+            }
         }
 
         // ========== 提交验证 ==========
@@ -1412,7 +1455,7 @@
             }
 
             formData.submitTime = new Date().toLocaleString('zh-CN');
-            formData.enrollStatus = '否';  // 默认未报名
+            formData.enrollStatus = formData.enrollStatus || '否';  // 保持现有报名状态
 
             // 标记验证完成（这样下次从步骤2可以直接跳步骤4）
             markVerificationComplete();
@@ -1420,10 +1463,10 @@
             // 保存完整记录到 localStorage
             saveCompleteRecord();
 
-            // 上报到 GitHub（异步，不阻塞UI）
-            submitToGitHub(formData).then(function(resp) {
-                if (resp && resp.content) {
-                    console.log('[数据上报] 成功');
+            // 上报到 GitHub（异步，不阻塞UI）- 首次创建记录
+            submitToGitHub(formData, false).then(function(resp) {
+                if (resp && (resp.content || resp.commit)) {
+                    console.log('[数据上报] 成功，recordId:', _currentRecordId);
                 } else {
                     console.warn('[数据上报] 失败', resp);
                 }
@@ -1472,12 +1515,15 @@
 
             // 更新 enrollStatus
             formData.enrollStatus = '是';
+            formData.enrollTime = new Date().toLocaleString('zh-CN');
 
-            // 上报更新后的数据到 GitHub（带报名标记）
-            var enrollData = JSON.parse(JSON.stringify(formData));
-            enrollData.enrollTime = new Date().toLocaleString('zh-CN');
-            submitToGitHub(enrollData).then(function(resp) {
-                console.log('[报名上报]', resp && resp.content ? '成功' : '失败');
+            // 更新到 GitHub（使用 isUpdate=true 更新同一记录）
+            submitToGitHub(formData, true).then(function(resp) {
+                if (resp && (resp.content || resp.commit)) {
+                    console.log('[报名上报] 成功，recordId:', _currentRecordId);
+                } else {
+                    console.warn('[报名上报] 失败', resp);
+                }
             }).catch(function(e) {
                 console.warn('[报名上报] 网络异常', e);
             });
@@ -1555,6 +1601,10 @@
 
             // 重置乱写检测结果（这样重新验证时会重新检测）
             _sloppyResult = [];
+
+            // 重置 recordId（重新开始新的记录）
+            _currentRecordId = 0;
+            _stepsVerified = false;
 
             // 重置报名区域
             formData.enrollStatus = '否';
