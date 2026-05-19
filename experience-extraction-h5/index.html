@@ -446,7 +446,7 @@
                         ← 上一步
                     </button>
                     <button class="btn confirm-btn" id="submitBtn" onclick="submitStep2()">
-                        <span>→</span> 查看修改建议
+                        <span>→</span> <span id="submitBtnText">查看修改建议</span>
                     </button>
                 </div>
             </div>
@@ -689,10 +689,15 @@
             document.getElementById('stepSection1').classList.add('active');
             updateStepIndicator(1);
             updateProgress(25);
+            // 更新步骤2按钮文字（如果已验证过，显示"完成验证"）
+            updateSubmitBtnText();
         }
 
         // ========== 步骤2 → 步骤3 (新版本，兼容按钮) ==========
         // ========== 步骤2 → 步骤3 ==========
+        // 全局变量：标记是否已验证过（用于快速跳过步骤3）
+        var _stepsVerified = false;
+
         function submitStep2() {
             // 获取必填值
             var source = document.getElementById('source').value;
@@ -732,6 +737,21 @@
             formData.dim3Score = parseInt(dim3);
             formData.hasCase = hasCase.value;
             formData.isClear = isClear.value;
+
+            // 检查选题是否修改过，如果修改过需要重新验证
+            var needReviseRadio = document.querySelector('input[name="needRevise"]:checked');
+            formData.needRevise = needReviseRadio ? needReviseRadio.value : '';
+
+            // 如果选题修改过，需要重新生成建议
+            if (formData.needRevise === 'yes') {
+                _stepsVerified = false;
+            }
+
+            // 如果已经验证过（选题没有修改），直接跳到步骤4
+            if (_stepsVerified) {
+                goToStep4FromStep2();
+                return;
+            }
             
             // 生成建议（用try-catch确保不阻塞）
             try {
@@ -747,6 +767,21 @@
             document.getElementById('stepSection3').style.display = 'block';
             updateStepIndicator(3);
             updateProgress(75);
+        }
+
+        // 从步骤2直接跳到步骤4（快速通道）
+        function goToStep4FromStep2() {
+            document.getElementById('stepSection2').style.display = 'none';
+            document.getElementById('stepSection4').style.display = 'block';
+            updateStepIndicator(4);
+            updateProgress(100);
+            initStep4();
+            initEnrollButton();
+        }
+
+        // 标记验证完成（步骤3验证成功后调用）
+        function markVerificationComplete() {
+            _stepsVerified = true;
         }
         
         function goToStep3() {
@@ -764,6 +799,19 @@
                 document.getElementById('caseSection').style.display = 'block';
                 document.getElementById('otherSection').style.display = 'block';
                 document.getElementById('step2Btns').style.display = 'block';
+            }
+            // 更新按钮文字（如果已验证过，显示"完成验证"）
+            updateSubmitBtnText();
+        }
+
+        // ========== 更新下一步按钮文字 ==========
+        function updateSubmitBtnText() {
+            var btnText = document.getElementById('submitBtnText');
+            if (!btnText) return;
+            if (_stepsVerified) {
+                btnText.textContent = '完成验证';
+            } else {
+                btnText.textContent = '查看修改建议';
             }
         }
 
@@ -1366,6 +1414,9 @@
             formData.submitTime = new Date().toLocaleString('zh-CN');
             formData.enrollStatus = '否';  // 默认未报名
 
+            // 标记验证完成（这样下次从步骤2可以直接跳步骤4）
+            markVerificationComplete();
+
             // 保存完整记录到 localStorage
             saveCompleteRecord();
 
@@ -1464,10 +1515,7 @@
 
         // ========== 重新开始 ==========
         function restart() {
-            // 重置表单
-            document.getElementById('name').value = '';
-            document.getElementById('employeeId').value = '';
-            document.getElementById('department').value = '';
+            // 只重置选题相关内容，保留个人信息（工号、姓名、部门）
             document.getElementById('topic').value = '';
             document.getElementById('charCount').textContent = '0';
             document.getElementById('source').value = '';
@@ -1490,9 +1538,26 @@
             document.getElementById('reviseInputArea').style.display = 'none';
             document.getElementById('revisedTopic').value = '';
 
+            // 重置formData中的选题相关字段
+            formData.topic = '';
+            formData.source = '';
+            formData.dim1Score = '';
+            formData.dim2Score = '';
+            formData.dim3Score = '';
+            formData.extractionValue = '';
+            formData.hasCase = '';
+            formData.lessonLearned = '';
+            formData.expectedEffect = '';
+            formData.targetAudience = '';
+            formData.isClear = '';
+            formData.needRevise = '';
+            formData.revisedTopic = '';
+
+            // 重置乱写检测结果（这样重新验证时会重新检测）
+            _sloppyResult = [];
+
             // 重置报名区域
             formData.enrollStatus = '否';
-            _sloppyResult = [];
             var enrollBtn = document.getElementById('enrollBtn');
             if (enrollBtn) { enrollBtn.disabled = false; enrollBtn.style.display = ''; enrollBtn.innerHTML = '🚀 提交本选题作为报名'; }
             var enrollHint = document.getElementById('enrollHint');
