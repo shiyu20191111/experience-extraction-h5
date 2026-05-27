@@ -1,0 +1,14 @@
+{
+  "name": "测试",
+  "employeeId": "12345",
+  "department": "1234",
+  "topic": "测试",
+  "dim1Score": 1,
+  "dim2Score": 2,
+  "dim3Score": 2,
+  "hasCase": "yes",
+  "submitTime": "2026/5/27 19:17:17",
+  "enrollStatus": "否",
+  "status": "completed",
+  "recordId": 1779880637915
+}
